@@ -80,8 +80,9 @@ function tomtomGet(url, callback) {
   xhr.timeout = REQUEST_TIMEOUT_MS;
   xhr.onload = function () {
     if (xhr.status === 400) return finish('Keine Route gefunden');
-    if (xhr.status === 403) return finish('API-Key ungültig');
-    if (xhr.status === 429) return finish('TomTom-Kontingent leer');
+    // TomTom meldet ein aufgebrauchtes Kontingent ebenfalls mit 403
+    if (xhr.status === 403) return finish('Key falsch oder Kontingent leer');
+    if (xhr.status === 429) return finish('Zu viele Anfragen, kurz warten');
     if (xhr.status < 200 || xhr.status > 299) return finish('TomTom-Fehler ' + xhr.status);
     var json;
     try {
@@ -137,7 +138,7 @@ function resolvePlace(slot, text, apiKey, callback) {
   var url = 'https://api.tomtom.com/search/2/geocode/' + encodeURIComponent(text) +
             '.json?limit=1&language=de-DE&key=' + encodeURIComponent(apiKey);
   tomtomGet(url, function (error, json) {
-    if (error) return callback(label + ': ' + error);
+    if (error) return callback(error);  // ohne Ortsangabe, sonst zu lang für die Fußzeile
     var result = json.results && json.results[0];
     if (!result || !result.position) return callback(label + ' nicht gefunden');
 

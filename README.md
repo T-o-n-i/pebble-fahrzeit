@@ -10,7 +10,7 @@ Plattform: emery (Pebble Time 2).
 
 ## Einrichten
 
-1. Auf [developer.tomtom.com](https://developer.tomtom.com) ein kostenloses Konto anlegen und einen API-Key erzeugen. Zahlungsdaten sind nicht nötig. Das Freikontingent liegt bei 2.500 Abfragen am Tag; ist es aufgebraucht, kommen bis zum nächsten Tag keine Antworten, Kosten entstehen nicht.
+1. Auf [developer.tomtom.com](https://developer.tomtom.com) ein kostenloses Konto anlegen und einen API-Key erzeugen. Zahlungsdaten sind nicht nötig. Das Freikontingent gilt pro Monat und für das ganze Konto, alle Keys teilen es sich. Für die Routing API sind es 20.000 Abfragen im Monat (Stand Oktober 2026, siehe [TomTom Pricing](https://docs.tomtom.com/pricing)). Ist es aufgebraucht, werden Abfragen bis zum nächsten Abrechnungszeitraum blockiert, Kosten entstehen nicht.
 2. `build/fahrzeit-direkt.pbw` auf das Handy bringen, etwa per AirDrop, und in der Pebble-App öffnen.
 3. In der Pebble-App die Einstellungen von „Fahrzeit Direkt“ öffnen, Key und Orte eintragen, speichern.
 
@@ -42,7 +42,7 @@ Key, Orte und gefundene Koordinaten liegen nur im `localStorage` von PebbleKit J
 - **UP** oder **DOWN** wechselt die Richtung, jede Richtung behält ihren letzten Stand.
 - Die App fragt beim Öffnen und dann alle 3 Minuten ab, nur die angezeigte Richtung. Nach 30 Minuten pausiert sie. **SELECT** fragt sofort ab und startet die 30 Minuten neu.
 
-Eine halbe Stunde offene App sind etwa 11 Abfragen, bei Adressen beim ersten Mal je eine Suche mehr.
+Eine halbe Stunde offene App sind etwa 11 Abfragen, bei Adressen beim ersten Mal je eine Suche mehr. Bei zwei Sitzungen pro Arbeitstag sind das rund 500 im Monat, weit unter dem Freikontingent.
 
 ## Fehlermeldungen
 
@@ -50,8 +50,8 @@ Eine halbe Stunde offene App sind etwa 11 Abfragen, bei Adressen beim ersten Mal
 |---|---|
 | API-Key fehlt: Einstellungen | kein Key eingetragen |
 | Orte fehlen: Einstellungen | Ort 1 oder Ort 2 leer |
-| API-Key ungültig | TomTom lehnt den Key ab (403) |
-| TomTom-Kontingent leer | zu viele Abfragen (429) |
+| Key falsch oder Kontingent leer | TomTom lehnt die Abfrage ab (403); das passiert bei einem falschen Key und auch, wenn das Monatskontingent aufgebraucht ist |
+| Zu viele Anfragen, kurz warten | zu viele Abfragen in kurzer Zeit (429) |
 | Keine Route gefunden | TomTom findet keine Autoroute zwischen den Orten |
 | Ort 1 nicht gefunden / Ort 2 nicht gefunden | die Adresse liefert keinen Treffer |
 | TomTom nicht erreichbar / TomTom antwortet nicht | Netzwerkfehler oder keine Antwort in 15 Sekunden |
