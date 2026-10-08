@@ -1,8 +1,8 @@
-# Fahrzeit Direkt
+# Fahrzeit
 
 Pebble-App, die live anzeigt, wie lange die Autofahrt zwischen zwei Orten gerade dauert, mit Verkehr. Sie fragt TomTom direkt vom Handy aus ab und braucht weder Home Assistant noch einen eigenen Server. Man braucht nur einen kostenlosen API-Key von TomTom.
 
-Schwester-Projekt von [pebble-fahrzeit](https://github.com/T-o-n-i/pebble-fahrzeit), das dieselbe Anzeige aus Home-Assistant-Sensoren speist.
+Schwester-Projekt: [pebble-fahrzeit-HA](https://github.com/T-o-n-i/pebble-fahrzeit-HA) speist dieselbe Anzeige aus Home-Assistant-Sensoren.
 
 Plattform: emery (Pebble Time 2).
 
@@ -11,8 +11,8 @@ Plattform: emery (Pebble Time 2).
 ## Einrichten
 
 1. Auf [developer.tomtom.com](https://developer.tomtom.com) ein kostenloses Konto anlegen und einen API-Key erzeugen. Zahlungsdaten sind nicht nötig. Das Freikontingent gilt pro Monat und für das ganze Konto, alle Keys teilen es sich. Für die Routing API sind es 20.000 Abfragen im Monat (Stand Oktober 2026, siehe [TomTom Pricing](https://docs.tomtom.com/pricing)). Ist es aufgebraucht, werden Abfragen bis zum nächsten Abrechnungszeitraum blockiert, Kosten entstehen nicht.
-2. `build/fahrzeit-direkt.pbw` auf das Handy bringen, etwa per AirDrop, und in der Pebble-App öffnen.
-3. In der Pebble-App die Einstellungen von „Fahrzeit Direkt“ öffnen, Key und Orte eintragen, speichern.
+2. `build/fahrzeit.pbw` auf das Handy bringen, etwa per AirDrop, und in der Pebble-App öffnen.
+3. In der Pebble-App die Einstellungen von „Fahrzeit“ öffnen, Key und Orte eintragen, speichern.
 
 ## Einstellungen
 

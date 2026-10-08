@@ -1,5 +1,5 @@
 {
-  "name": "fahrzeit-direkt",
+  "name": "fahrzeit",
   "author": "Toni",
   "version": "1.0.0",
   "keywords": [
@@ -10,7 +10,7 @@
     "@rebble/clay": "^1.0.8"
   },
   "pebble": {
-    "displayName": "Fahrzeit Direkt",
+    "displayName": "Fahrzeit",
     "uuid": "4b05f597-8cf8-4a99-8263-5d086fb8dc87",
     "sdkVersion": "3",
     "enableMultiJS": true,

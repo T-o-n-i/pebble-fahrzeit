@@ -1,7 +1,7 @@
 module.exports = [
   {
     "type": "heading",
-    "defaultValue": "Fahrzeit Direkt"
+    "defaultValue": "Fahrzeit"
   },
   {
     "type": "text",
