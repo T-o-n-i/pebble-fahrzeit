@@ -1,0 +1,47 @@
+{
+  "name": "fahrzeit-direkt",
+  "author": "Toni",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {
+    "@rebble/clay": "^1.0.8"
+  },
+  "pebble": {
+    "displayName": "Fahrzeit Direkt",
+    "uuid": "4b05f597-8cf8-4a99-8263-5d086fb8dc87",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": [
+      "configurable"
+    ],
+    "messageKeys": [
+      "MINUTES",
+      "DELAY",
+      "DISTANCE",
+      "UPDATED",
+      "STATUS",
+      "REQUEST",
+      "DIRECTION",
+      "SWITCH",
+      "JS_READY",
+      "LABEL_OUT",
+      "LABEL_BACK",
+      "TOMTOM_KEY",
+      "PLACE_A",
+      "PLACE_B",
+      "SWITCH_TIME"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}
