@@ -98,6 +98,58 @@ module.exports = [
     ]
   },
   {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Korrektur"
+      },
+      {
+        "type": "text",
+        "defaultValue": "TomTom rechnet eher optimistisch. Angezeigt wird die Fahrzeit von TomTom plus Zuschlag plus Puffer. Der Zuschlag wächst mit der Fahrzeit, etwa für einen gemütlicheren Fahrstil. Der Puffer ist fest, etwa für Parkplatzsuche und Fußweg. Stau und Farbe bleiben bei den Werten von TomTom."
+      },
+      {
+        "type": "input",
+        "messageKey": "SURCHARGE",
+        "label": "Zuschlag in %",
+        "defaultValue": "0",
+        "attributes": {
+          "type": "number",
+          "inputmode": "decimal",
+          "min": 0,
+          "max": 100,
+          "step": "any"
+        }
+      },
+      {
+        "type": "input",
+        "messageKey": "BUFFER_OUT",
+        "label": "Puffer Hinweg in min",
+        "defaultValue": "0",
+        "attributes": {
+          "type": "number",
+          "inputmode": "numeric",
+          "min": 0,
+          "max": 120,
+          "step": 1
+        }
+      },
+      {
+        "type": "input",
+        "messageKey": "BUFFER_BACK",
+        "label": "Puffer Rückweg in min",
+        "defaultValue": "0",
+        "attributes": {
+          "type": "number",
+          "inputmode": "numeric",
+          "min": 0,
+          "max": 120,
+          "step": 1
+        }
+      }
+    ]
+  },
+  {
     "type": "submit",
     "defaultValue": "Speichern"
   }

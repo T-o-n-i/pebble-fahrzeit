@@ -10,7 +10,10 @@ var DEFAULTS = {
   PLACE_B: '',
   LABEL_OUT: 'Zur Arbeit',
   LABEL_BACK: 'Nach Hause',
-  SWITCH_TIME: '12:00'
+  SWITCH_TIME: '12:00',
+  SURCHARGE: '0',
+  BUFFER_OUT: '0',
+  BUFFER_BACK: '0'
 };
 var REQUEST_TIMEOUT_MS = 15000;
 var PLACES_STORAGE = 'resolved-places';
@@ -31,7 +34,8 @@ function loadSettings() {
   }
   var settings = {};
   Object.keys(DEFAULTS).forEach(function (key) {
-    var value = typeof stored[key] === 'string' ? stored[key].trim() : '';
+    var raw = stored[key];
+    var value = typeof raw === 'string' || typeof raw === 'number' ? String(raw).trim() : '';
     settings[key] = value || DEFAULTS[key];
   });
   return settings;
@@ -43,6 +47,20 @@ function switchMinutes(settings) {
   if (!match) return 12 * 60;
   var minutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
   return minutes >= 0 && minutes < 24 * 60 ? minutes : 12 * 60;
+}
+
+// Zahl aus den Einstellungen, auch mit Dezimalkomma, begrenzt auf min..max; bei Unsinn 0
+function settingNumber(text, min, max) {
+  var value = parseFloat(String(text).replace(',', '.'));
+  if (isNaN(value)) return 0;
+  return Math.min(Math.max(value, min), max);
+}
+
+// TomTom-Fahrzeit plus Zuschlag in Prozent plus Puffer der Richtung in Minuten
+function correctedSeconds(seconds, settings, direction) {
+  var surcharge = settingNumber(settings.SURCHARGE, 0, 100);
+  var buffer = settingNumber(direction === BACK ? settings.BUFFER_BACK : settings.BUFFER_OUT, 0, 120);
+  return seconds * (1 + surcharge / 100) + buffer * 60;
 }
 
 function send(message) {
@@ -163,11 +181,11 @@ function fail(direction, text) {
   finishRefresh();
 }
 
-function requestRoute(from, to, apiKey, direction) {
+function requestRoute(from, to, settings, direction) {
   var url = 'https://api.tomtom.com/routing/1/calculateRoute/' +
             from.lat + ',' + from.lon + ':' + to.lat + ',' + to.lon + '/json' +
             '?traffic=true&travelMode=car&routeType=fastest&computeTravelTimeFor=all' +
-            '&key=' + encodeURIComponent(apiKey);
+            '&key=' + encodeURIComponent(settings.TOMTOM_KEY);
   tomtomGet(url, function (error, json) {
     if (error) return fail(direction, error);
     var route = json.routes && json.routes[0];
@@ -176,7 +194,7 @@ function requestRoute(from, to, apiKey, direction) {
     var summary = route.summary;
     send({
       DIRECTION: direction,
-      MINUTES: Math.round(summary.travelTimeInSeconds / 60),
+      MINUTES: Math.round(correctedSeconds(summary.travelTimeInSeconds, settings, direction) / 60),
       DELAY: Math.round(summary.trafficDelayInSeconds || 0),
       DISTANCE: Math.round(summary.lengthInMeters || 0),
       UPDATED: Math.floor(Date.now() / 1000),
@@ -201,9 +219,9 @@ function refresh(direction) {
     resolvePlace('B', settings.PLACE_B, settings.TOMTOM_KEY, function (errorB, placeB) {
       if (errorB) return fail(direction, errorB);
       if (direction === BACK) {
-        requestRoute(placeB, placeA, settings.TOMTOM_KEY, direction);
+        requestRoute(placeB, placeA, settings, direction);
       } else {
-        requestRoute(placeA, placeB, settings.TOMTOM_KEY, direction);
+        requestRoute(placeA, placeB, settings, direction);
       }
     });
   });

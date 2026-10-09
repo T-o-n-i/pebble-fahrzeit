@@ -38,7 +38,10 @@
       "TOMTOM_KEY",
       "PLACE_A",
       "PLACE_B",
-      "SWITCH_TIME"
+      "SWITCH_TIME",
+      "SURCHARGE",
+      "BUFFER_OUT",
+      "BUFFER_BACK"
     ],
     "resources": {
       "media": [

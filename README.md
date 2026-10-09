@@ -24,6 +24,11 @@ Plattform: emery (Pebble Time 2).
 | Bezeichnung Hinweg | Zur Arbeit | Kopfzeile für Ort 1 → Ort 2, bis 20 Zeichen |
 | Bezeichnung Rückweg | Nach Hause | Kopfzeile für Ort 2 → Ort 1 |
 | Rückweg ab | 12:00 | ab dieser Uhrzeit öffnet die App mit dem Rückweg |
+| Zuschlag in % | 0 | Aufschlag auf die Fahrzeit von TomTom, für beide Richtungen |
+| Puffer Hinweg in min | 0 | feste Minuten obendrauf, etwa für Parkplatzsuche und Fußweg |
+| Puffer Rückweg in min | 0 | dasselbe für den Rückweg |
+
+TomTom rechnet eher optimistisch. Angezeigt wird deshalb `Fahrzeit von TomTom × (1 + Zuschlag) + Puffer der Richtung`, gerundet auf ganze Minuten. Der Zuschlag gleicht aus, was mit der Strecke wächst, der Puffer feste Zeiten wie die Einfahrt ins Parkhaus. Auf der Uhr wird die Korrektur nicht eigens angezeigt. Ankunftszeit und „ohne Stau“ rechnen mit der korrigierten Fahrzeit, Stau-Minuten und Farbe bleiben bei den Werten von TomTom.
 
 Orte gehen als Koordinaten oder als Adresse:
 
@@ -32,7 +37,7 @@ Orte gehen als Koordinaten oder als Adresse:
 
 Am genauesten sind Koordinaten auf der Zufahrt, etwa zum Parkhaus. Ein Routendienst legt jeden Punkt auf die nächste Straße. Liegt der Punkt mitten in einem großen Gebäude oder neben einer Autobahn, kann er auf der falschen Straße landen, und die Fahrzeit stimmt nicht.
 
-Key, Orte und gefundene Koordinaten liegen nur im `localStorage` von PebbleKit JS auf dem Handy. An die Uhr gehen nur die beiden Bezeichnungen und die Umschaltzeit.
+Key, Orte, Korrektur und gefundene Koordinaten liegen nur im `localStorage` von PebbleKit JS auf dem Handy. An die Uhr gehen nur die beiden Bezeichnungen und die Umschaltzeit.
 
 ## Anzeige und Bedienung
 
@@ -65,7 +70,7 @@ Eine halbe Stunde offene App sind etwa 11 Abfragen, bei Adressen beim ersten Mal
 | `src/pkjs/index.js` | Handy: Einstellungen lesen, Adressen auflösen, Route bei TomTom abfragen |
 | `src/pkjs/config.js` | Einstellungsseite (Clay) |
 
-Ablauf: Beim Start meldet PebbleKit JS `JS_READY` mit Bezeichnungen und Umschaltzeit. Die Uhr wählt die Richtung und schickt `REQUEST` mit `DIRECTION` (0 = Hinweg, 1 = Rückweg). Das Handy ruft die [TomTom Routing API](https://developer.tomtom.com/routing-api/documentation/tomtom-maps/product-information/introduction) mit `traffic=true` auf und schickt Minuten, Verzögerung, Strecke und Zeitpunkt zurück.
+Ablauf: Beim Start meldet PebbleKit JS `JS_READY` mit Bezeichnungen und Umschaltzeit. Die Uhr wählt die Richtung und schickt `REQUEST` mit `DIRECTION` (0 = Hinweg, 1 = Rückweg). Das Handy ruft die [TomTom Routing API](https://developer.tomtom.com/routing-api/documentation/tomtom-maps/product-information/introduction) mit `traffic=true` auf und schickt die korrigierten Minuten, Verzögerung, Strecke und Zeitpunkt zurück.
 
 ## Bauen
 
