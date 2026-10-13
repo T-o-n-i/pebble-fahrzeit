@@ -1,248 +1,228 @@
-var Clay = require('@rebble/clay');
-var clayConfig = require('./config');
+// Fahrzeit — Handy-Teil (PebbleKit JS).
+// Hält Favoriten (Ziel ab Standort) und Strecken (fester Start), fragt die TomTom Routing API ab und schickt der Uhr
+// fertige Minuten mit Zuschlag, Puffer und Parkzeit. Die TomTom-Abfrage stammt aus Tonis Original (0.1.0),
+// seit 0.2.0 (mit Seb 2026-10-11) gibt es statt Hin- und Rückweg die Wahl WOHIN? an der Uhr.
+//
+// Ankunftszeit: bis 90 min vorher mit dem aktuellen Verkehr (departAt jetzt), weiter weg mit arriveAt (TomTom rechnet
+// dann mit Erfahrungswerten für diese Uhrzeit). Ob arriveAt auch Live-Verkehr nutzt, sagt die Doku nicht.
 
-// Die Einstellungen bleiben auf dem Handy; an die Uhr gehen nur Bezeichnungen und Umschaltzeit.
-var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
+var keys = require('message_keys');
+var SEITE_HTML = require('./einstellungen_seite');
+var L = require('./logik')();
 
-var DEFAULTS = {
-  TOMTOM_KEY: '',
-  PLACE_A: '',
-  PLACE_B: '',
-  LABEL_OUT: 'Zur Arbeit',
-  LABEL_BACK: 'Nach Hause',
-  SWITCH_TIME: '12:00',
-  SURCHARGE: '0',
-  BUFFER_OUT: '0',
-  BUFFER_BACK: '0'
-};
-var REQUEST_TIMEOUT_MS = 15000;
-var PLACES_STORAGE = 'resolved-places';
+var SPEICHER = 'fahrzeit';
+var TIMEOUT_MS = 15000;
+var ARRIVE_AB_S = 90 * 60;            // ab so weit in der Zukunft arriveAt statt Verkehr jetzt
 
-// Richtungen wie auf der Uhr: 0 = Hinweg (Ort 1 → Ort 2), 1 = Rückweg
-var OUT = 0;
-var BACK = 1;
-
-var inFlight = false;
-var pending = null;  // Richtung, die während einer laufenden Abfrage angefragt wurde
-
-function loadSettings() {
-  var stored = {};
-  try {
-    stored = JSON.parse(localStorage.getItem('clay-settings')) || {};
-  } catch (e) {
-    stored = {};
-  }
-  var settings = {};
-  Object.keys(DEFAULTS).forEach(function (key) {
-    var raw = stored[key];
-    var value = typeof raw === 'string' || typeof raw === 'number' ? String(raw).trim() : '';
-    settings[key] = value || DEFAULTS[key];
-  });
-  return settings;
+// ---------- Daten ----------
+function datenLesen() {
+  var d = null;
+  try { d = JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { d = null; }
+  if (d) return L.bereinigen(d);
+  // erster Start nach 0.1.0: Clay-Einstellungen übernehmen
+  var alt = null, orte = null;
+  try { alt = JSON.parse(localStorage.getItem('clay-settings')); } catch (e) { alt = null; }
+  try { orte = JSON.parse(localStorage.getItem('resolved-places')); } catch (e) { orte = null; }
+  d = L.ausAlt(alt, orte);
+  datenSchreiben(d);
+  if (alt) console.log('Einstellungen aus 0.1.0 übernommen: ' + d.favoriten.length + ' Favoriten');
+  return d;
 }
+function datenSchreiben(d) { localStorage.setItem(SPEICHER, JSON.stringify(d)); }
 
-// "HH:MM" in Minuten nach Mitternacht, bei Unsinn 12:00
-function switchMinutes(settings) {
-  var match = /^(\d{1,2}):(\d{2})/.exec(settings.SWITCH_TIME);
-  if (!match) return 12 * 60;
-  var minutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-  return minutes >= 0 && minutes < 24 * 60 ? minutes : 12 * 60;
+// ---------- Senden der Reihe nach ----------
+var schlange = [], sendetGerade = false;
+function senden(msg) {
+  schlange.push(msg);
+  if (!sendetGerade) weiter();
 }
-
-// Zahl aus den Einstellungen, auch mit Dezimalkomma, begrenzt auf min..max; bei Unsinn 0
-function settingNumber(text, min, max) {
-  var value = parseFloat(String(text).replace(',', '.'));
-  if (isNaN(value)) return 0;
-  return Math.min(Math.max(value, min), max);
-}
-
-// TomTom-Fahrzeit plus Zuschlag in Prozent plus Puffer der Richtung in Minuten
-function correctedSeconds(seconds, settings, direction) {
-  var surcharge = settingNumber(settings.SURCHARGE, 0, 100);
-  var buffer = settingNumber(direction === BACK ? settings.BUFFER_BACK : settings.BUFFER_OUT, 0, 120);
-  return seconds * (1 + surcharge / 100) + buffer * 60;
-}
-
-function send(message) {
-  Pebble.sendAppMessage(message, null, function () {
+function weiter() {
+  var msg = schlange.shift();
+  if (!msg) { sendetGerade = false; return; }
+  sendetGerade = true;
+  Pebble.sendAppMessage(msg, weiter, function () {
     console.log('Senden an die Uhr fehlgeschlagen');
+    weiter();
   });
 }
 
-function sendStatus(direction, text) {
-  send({ DIRECTION: direction, STATUS: text });
+function einrichtungSenden(bereit) {
+  var d = datenLesen(), m = {};
+  m[keys.LISTE] = L.listeText(d);
+  m[keys.ERINNERUNG] = d.erinnerung;
+  m[keys.ANSICHT] = d.ansicht === 'papier' ? 1 : 0;
+  if (bereit) m[keys.JS_READY] = 1;
+  senden(m);
 }
 
-// Meldet der Uhr, dass PebbleKit JS bereit ist; die Uhr fragt dann ihre Richtung an.
-function announceReady() {
-  var settings = loadSettings();
-  send({
-    JS_READY: 1,
-    SWITCH: switchMinutes(settings),
-    LABEL_OUT: settings.LABEL_OUT.substring(0, 20),
-    LABEL_BACK: settings.LABEL_BACK.substring(0, 20)
-  });
+function statusSenden(id, text) {
+  var m = {};
+  m[keys.ZIEL] = id;
+  m[keys.STATUS] = L.utf8Kuerzen(text, 46);
+  senden(m);
 }
 
-// GET auf die TomTom-API; callback(fehlertext, json)
-function tomtomGet(url, callback) {
-  var xhr = new XMLHttpRequest();
-  var done = false;
-  function finish(error, response) {
-    if (done) return;
-    done = true;
-    callback(error, response);
-  }
-
+// ---------- TomTom ----------
+function tomtomGet(url, fertig) {
+  var xhr = new XMLHttpRequest(), done = false;
+  function ende(fehler, json) { if (!done) { done = true; fertig(fehler, json); } }
   xhr.open('GET', url, true);
-  xhr.timeout = REQUEST_TIMEOUT_MS;
+  xhr.timeout = TIMEOUT_MS;
   xhr.onload = function () {
-    if (xhr.status === 400) return finish('Keine Route gefunden');
+    if (xhr.status === 400) return ende('Keine Route gefunden');
     // TomTom meldet ein aufgebrauchtes Kontingent ebenfalls mit 403
-    if (xhr.status === 403) return finish('Key falsch oder Kontingent leer');
-    if (xhr.status === 429) return finish('Zu viele Anfragen, kurz warten');
-    if (xhr.status < 200 || xhr.status > 299) return finish('TomTom-Fehler ' + xhr.status);
+    if (xhr.status === 401 || xhr.status === 403) return ende('Key falsch oder Kontingent leer');
+    if (xhr.status === 429) return ende('Zu viele Anfragen, kurz warten');
+    if (xhr.status < 200 || xhr.status > 299) return ende('TomTom-Fehler ' + xhr.status);
     var json;
-    try {
-      json = JSON.parse(xhr.responseText);
-    } catch (e) {
-      return finish('Antwort unlesbar');
-    }
-    finish(null, json);
+    try { json = JSON.parse(xhr.responseText); } catch (e) { return ende('Antwort unlesbar'); }
+    ende(null, json);
   };
-  xhr.onerror = function () { finish('TomTom nicht erreichbar'); };
-  xhr.ontimeout = function () { finish('TomTom antwortet nicht'); };
+  xhr.onerror = function () { ende('TomTom nicht erreichbar'); };
+  xhr.ontimeout = function () { ende('TomTom antwortet nicht'); };
   xhr.send();
 }
 
-// "50.04885, 8.55722", "50.04885 8.55722" oder mit Dezimalkomma "50,04885; 8,55722"
-// bzw. "50,04885 8,55722" → {lat, lon}, sonst null
-function parseCoordinates(text) {
-  var lat, lon;
-  var match = /^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$/.exec(text);
-  var german = /^\s*(-?\d+,\d+)\s*(?:;\s*|,\s+|\s+)(-?\d+,\d+)\s*$/.exec(text);
-  if (match) {
-    lat = parseFloat(match[1]);
-    lon = parseFloat(match[2]);
-  } else if (german) {
-    lat = parseFloat(german[1].replace(',', '.'));
-    lon = parseFloat(german[2].replace(',', '.'));
-  } else {
-    return null;
-  }
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
-  return { lat: lat, lon: lon };
-}
-
-function loadResolvedPlaces() {
-  try {
-    return JSON.parse(localStorage.getItem(PLACES_STORAGE)) || {};
-  } catch (e) {
-    return {};
-  }
-}
-
-// Liefert Koordinaten für einen Ort. Adressen werden nur einmal gesucht und dann gemerkt.
-function resolvePlace(slot, text, apiKey, callback) {
-  var coordinates = parseCoordinates(text);
-  if (coordinates) return callback(null, coordinates);
-
-  var cache = loadResolvedPlaces();
-  if (cache[slot] && cache[slot].query === text) {
-    return callback(null, cache[slot]);
-  }
-
-  var label = slot === 'A' ? 'Ort 1' : 'Ort 2';
-  var url = 'https://api.tomtom.com/search/2/geocode/' + encodeURIComponent(text) +
-            '.json?limit=1&language=de-DE&key=' + encodeURIComponent(apiKey);
-  tomtomGet(url, function (error, json) {
-    if (error) return callback(error);  // ohne Ortsangabe, sonst zu lang für die Fußzeile
-    var result = json.results && json.results[0];
-    if (!result || !result.position) return callback(label + ' nicht gefunden');
-
-    cache[slot] = { query: text, lat: result.position.lat, lon: result.position.lon };
-    localStorage.setItem(PLACES_STORAGE, JSON.stringify(cache));
-    console.log(label + ' gefunden: ' + (result.address && result.address.freeformAddress));
-    callback(null, cache[slot]);
+// Koordinaten eines Orts; Adressen ohne Koordinaten werden einmal gesucht und im Ort gespeichert
+function aufloesen(d, o, nahe, fertig) {
+  if (typeof o.lat === 'number' && typeof o.lon === 'number') return fertig(null, o);
+  var k = L.koordinaten(o.adresse);
+  if (k) { o.lat = k.lat; o.lon = k.lon; datenSchreiben(d); return fertig(null, o); }
+  tomtomGet(L.suchUrl(o.adresse, d.key, nahe), function (fehler, json) {
+    if (fehler) return fertig(fehler);
+    var t = L.treffer(json)[0];
+    if (!t) return fertig(L.kurzName(o) + ' nicht gefunden');
+    o.lat = t.lat; o.lon = t.lon;
+    datenSchreiben(d);
+    console.log('Ort gefunden: ' + t.adresse);
+    fertig(null, o);
   });
 }
 
-function finishRefresh() {
-  inFlight = false;
-  if (pending !== null) {
-    var next = pending;
-    pending = null;
-    refresh(next);
+function standort(fertig, ms) {
+  if (!navigator.geolocation) return fertig('Kein Standort');
+  var offen = true;
+  function ende(f, p) { if (offen) { offen = false; fertig(f, p); } }
+  ms = ms || 12000;
+  setTimeout(function () { ende('Kein Standort'); }, ms);
+  navigator.geolocation.getCurrentPosition(
+    function (p) { ende(null, { lat: p.coords.latitude, lon: p.coords.longitude }); },
+    function () { ende('Kein Standort'); },
+    { timeout: ms - 2000, maximumAge: 120000, enableHighAccuracy: false });
+}
+
+function iso(sekunden) { return new Date(sekunden * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z'); }
+
+function routeUrl(von, nach, key, ankunft) {
+  var zeit = ankunft && ankunft - Date.now() / 1000 > ARRIVE_AB_S ? '&arriveAt=' + encodeURIComponent(iso(ankunft)) : '';
+  return 'https://api.tomtom.com/routing/1/calculateRoute/' +
+    von.lat + ',' + von.lon + ':' + nach.lat + ',' + nach.lon + '/json' +
+    '?traffic=true&travelMode=car&routeType=fastest' + zeit + '&key=' + encodeURIComponent(key);
+}
+
+// ---------- Abfrage für die Uhr ----------
+var laeuft = false, wartend = null, nr = 0;
+
+function abfrage(id, ankunft) {
+  if (laeuft) { wartend = { id: id, ankunft: ankunft }; return; }
+  var d = datenLesen();
+  if (!d.key) return statusSenden(id, 'API-Key fehlt: Einstellungen');
+  var z = L.finden(d, id);
+  if (!z) { einrichtungSenden(false); return statusSenden(id, 'Ziel gibt es nicht mehr'); }
+  laeuft = true;
+  var meine = ++nr;
+  function fertig() {
+    laeuft = false;
+    if (wartend) { var w = wartend; wartend = null; abfrage(w.id, w.ankunft); }
   }
-}
+  function fehler(text) { if (meine === nr) statusSenden(id, text); fertig(); }
 
-function fail(direction, text) {
-  sendStatus(direction, text);
-  finishRefresh();
-}
-
-function requestRoute(from, to, settings, direction) {
-  var url = 'https://api.tomtom.com/routing/1/calculateRoute/' +
-            from.lat + ',' + from.lon + ':' + to.lat + ',' + to.lon + '/json' +
-            '?traffic=true&travelMode=car&routeType=fastest&computeTravelTimeFor=all' +
-            '&key=' + encodeURIComponent(settings.TOMTOM_KEY);
-  tomtomGet(url, function (error, json) {
-    if (error) return fail(direction, error);
-    var route = json.routes && json.routes[0];
-    if (!route || !route.summary) return fail(direction, 'Keine Route gefunden');
-
-    var summary = route.summary;
-    send({
-      DIRECTION: direction,
-      MINUTES: Math.round(correctedSeconds(summary.travelTimeInSeconds, settings, direction) / 60),
-      DELAY: Math.round(summary.trafficDelayInSeconds || 0),
-      DISTANCE: Math.round(summary.lengthInMeters || 0),
-      UPDATED: Math.floor(Date.now() / 1000),
-      STATUS: ''
-    });
-    finishRefresh();
-  });
-}
-
-function refresh(direction) {
-  if (inFlight) {
-    pending = direction;
-    return;
+  function start(weiter) {
+    if (z.typ === 'F') return standort(weiter);
+    var o = L.ort(d, z.ziel.von);
+    if (!o) return weiter('Start fehlt: Einstellungen');
+    aufloesen(d, o, null, weiter);
   }
-  var settings = loadSettings();
-  if (!settings.TOMTOM_KEY) return sendStatus(direction, 'API-Key fehlt: Einstellungen');
-  if (!settings.PLACE_A || !settings.PLACE_B) return sendStatus(direction, 'Orte fehlen: Einstellungen');
-
-  inFlight = true;
-  resolvePlace('A', settings.PLACE_A, settings.TOMTOM_KEY, function (errorA, placeA) {
-    if (errorA) return fail(direction, errorA);
-    resolvePlace('B', settings.PLACE_B, settings.TOMTOM_KEY, function (errorB, placeB) {
-      if (errorB) return fail(direction, errorB);
-      if (direction === BACK) {
-        requestRoute(placeB, placeA, settings, direction);
-      } else {
-        requestRoute(placeA, placeB, settings, direction);
-      }
+  start(function (f1, von) {
+    if (f1) return fehler(f1);
+    var nach = z.typ === 'F' ? z.ziel : L.ort(d, z.ziel.nach);
+    if (!nach) return fehler('Ziel fehlt: Einstellungen');
+    aufloesen(d, nach, von, function (f2, ziel) {
+      if (f2) return fehler(f2);
+      route(von, ziel, ankunft, true);
     });
   });
+
+  function route(von, ziel, ank, mitAnkunft) {
+    tomtomGet(routeUrl(von, ziel, d.key, mitAnkunft ? ank : 0), function (f, json) {
+      if (f && mitAnkunft && ank) return route(von, ziel, ank, false);   // arriveAt abgelehnt: mit Verkehr jetzt
+      if (f) return fehler(f);
+      var r = json.routes && json.routes[0];
+      if (!r || !r.summary) return fehler('Keine Route gefunden');
+      var s = r.summary, m = {};
+      m[keys.ZIEL] = id;
+      m[keys.MINUTES] = L.minuten(s.travelTimeInSeconds, L.korrektur(z.ziel, d));
+      m[keys.DELAY] = Math.round(s.trafficDelayInSeconds || 0);
+      m[keys.DISTANCE] = Math.round(s.lengthInMeters || 0);
+      m[keys.UPDATED] = Math.floor(Date.now() / 1000);
+      m[keys.STATUS] = '';
+      senden(m);
+      fertig();
+    });
+  }
 }
 
-Pebble.addEventListener('ready', function () {
-  announceReady();
-});
+function zaehlen(id) {
+  var d = datenLesen(), z = L.finden(d, id);
+  if (!z) return;
+  z.ziel.n = (z.ziel.n || 0) + 1;
+  datenSchreiben(d);
+  einrichtungSenden(false);             // Reihenfolge nach Häufigkeit nachziehen
+}
+
+Pebble.addEventListener('ready', function () { einrichtungSenden(true); });
 
 Pebble.addEventListener('appmessage', function (e) {
-  if (e.payload.REQUEST) {
-    refresh(e.payload.DIRECTION === BACK ? BACK : OUT);
+  var p = e.payload, wert = function (k) { return p[k] !== undefined ? p[k] : p[keys[k]]; };
+  if (wert('LOESCHEN') !== undefined) {
+    var d = datenLesen();
+    L.loeschen(d, wert('LOESCHEN'));
+    datenSchreiben(d);
+    einrichtungSenden(false);
+  }
+  if (wert('ERINNERUNG') !== undefined && wert('REQUEST') === undefined) {
+    var d2 = datenLesen();
+    if (L.ERINNERUNGEN.indexOf(wert('ERINNERUNG')) >= 0) { d2.erinnerung = wert('ERINNERUNG'); datenSchreiben(d2); }
+  }
+  if (wert('ANSICHT') !== undefined && wert('REQUEST') === undefined) {   // an der Uhr umgestellt
+    var d3 = datenLesen();
+    d3.ansicht = wert('ANSICHT') ? 'papier' : 'toni';
+    datenSchreiben(d3);
+  }
+  if (wert('REQUEST')) {
+    if (wert('ZAEHLEN')) zaehlen(wert('ZIEL'));
+    abfrage(wert('ZIEL'), wert('ANKUNFT') || 0);
   }
 });
 
+// ---------- Einstellungen: eingebettete Seite (wie Linie 8) ----------
 Pebble.addEventListener('showConfiguration', function () {
-  Pebble.openURL(clay.generateUrl());
+  // Standort hier holen und mitgeben: die Seite selbst darf es nicht (Android: nur sichere Herkunft)
+  standort(function (f, ort) {          // nur für die Suche in der Nähe, höchstens 4 s warten
+    var zustand = datenLesen();
+    zustand.standort = ort || null;
+    var html = SEITE_HTML.replace('/*ZUSTAND*/null', function () { return JSON.stringify(zustand); });
+    Pebble.openURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+  }, 4000);
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {
   if (!e || !e.response) return;
-  clay.getSettings(e.response, false);
-  announceReady();
+  try {
+    var neu = L.bereinigen(JSON.parse(decodeURIComponent(e.response)));
+    datenSchreiben(neu);
+    einrichtungSenden(true);            // JS_READY: die Uhr fragt mit den neuen Werten neu ab
+  } catch (err) {
+    console.log('Antwort der Seite unlesbar: ' + err);
+  }
 });

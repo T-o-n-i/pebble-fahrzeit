@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fahrzeit</title>
+<style>
+  /* Zwei Skins wie an der Uhr, umgeschaltet über die Klasse am body (seit 0.3.0).
+     toni:   Tonis bisherige Seite (Clay): Grau #333, Abschnitte #484848, Orange #ff4700, Schrift PF DIN bzw. sans-serif
+     papier: wie die Uhr (seit 0.4.0): schwarz auf weiß, alles fett, kein Grau in der Schrift */
+  body.toni { --bg: #333; --fg: #fff; --gedimmt: #a4a4a4; --titel: #fff; --betont: #ff4700; --linie: #666; --linienart: solid;
+    --karte: #484848; --karte-rand: transparent; --karte-schatten: 0 .15rem .25rem #2f2f2f; --karte-kopf: #414141;
+    --eingabe: #333; --eingabe-fg: #fff; --eingabe-rand: transparent; --fokus: #ff4700; --platzhalter: #858585;
+    --knopf: #666; --knopf-fg: #fff; --knopf-rand: transparent; --haupt: #ff4700; --haupt-fg: #fff;
+    --klein-knopf: #5b5b5b; --klein-knopf-fg: #ececec; --hinweis: #ffaa00; --fehler: #ff5555; --gut: #7ee07e;
+    --leiste: #2f2f2f; --radius: .25rem; --gross: uppercase; --abstand: .04em;
+    --schrift: 'PFDinDisplayPro-Regular', PFDinDisplayProRegularWebfont, Roboto, 'Helvetica Neue', sans-serif; --groesse: 17px; }
+  body.papier { --bg: #fff; --fg: #000; --gedimmt: #000; --titel: #000; --betont: #000; --linie: #bbb; --linienart: solid;
+    --karte: #fff; --karte-rand: #000; --karte-schatten: none; --karte-kopf: #fff;
+    --eingabe: #fff; --eingabe-fg: #000; --eingabe-rand: #000; --fokus: #000; --platzhalter: #555;
+    --knopf: #fff; --knopf-fg: #000; --knopf-rand: #000; --haupt: #000; --haupt-fg: #fff;
+    --klein-knopf: #fff; --klein-knopf-fg: #000; --hinweis: #c04000; --fehler: #c00000; --gut: #007a00;
+    --leiste: #eee; --radius: .25rem; --gross: none; --abstand: 0;
+    --schrift: Roboto, 'Helvetica Neue', Arial, sans-serif; --groesse: 17px; font-weight: bold; }
+  body.papier b, body.papier h1, body.papier h2 { font-weight: bold; }
+  body { margin: 0; padding: 16px 16px 40px; background: var(--bg); color: var(--fg); font: var(--groesse)/1.45 var(--schrift); }
+  h1 { font-size: 20px; color: var(--titel); margin: 0 0 4px; text-transform: var(--gross); letter-spacing: var(--abstand); font-weight: normal; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--gedimmt); margin: 20px 0 8px; font-weight: normal; }
+  b { color: var(--betont); font-weight: normal; }
+  .klein { font-size: 13px; color: var(--gedimmt); }
+  .hinweis { font-size: 13px; color: var(--hinweis); margin: 8px 0; }
+  .fehler { font-size: 13px; color: var(--fehler); margin: 8px 0; }
+  .gut { font-size: 12px; color: var(--gut); }
+  ul { list-style: none; padding: 0; margin: 6px 0 0; }
+  li { padding: 11px 6px; border-bottom: 1px var(--linienart) var(--linie); }
+  ul.menue { background: var(--karte); border: 1px solid var(--karte-rand); border-radius: var(--radius); box-shadow: var(--karte-schatten); margin: 12px 0; }
+  ul.menue li { padding: 14px 10px; font-size: 16px; text-transform: var(--gross); letter-spacing: .04em; }
+  ul.menue li:last-child { border-bottom: 0; }
+  ul.menue .pfeil { float: right; color: var(--betont); font-size: 20px; line-height: 18px; }
+  ul.treffer li { padding: 9px 6px; font-size: 14px; }
+  input[type=text], input[type=number], select { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; font-size: 16px;
+    border: 1px solid var(--eingabe-rand); border-radius: var(--radius); background: var(--eingabe); color: var(--eingabe-fg); -webkit-appearance: none; }
+  input:focus, select:focus { outline: none; border-color: var(--fokus); }
+  input::placeholder { color: var(--platzhalter); opacity: .8; }
+  button { padding: 10px 13px; font: inherit; font-size: 14px; text-transform: var(--gross); letter-spacing: .04em;
+    border: 1px solid var(--knopf-rand); border-radius: var(--radius); background: var(--knopf); color: var(--knopf-fg); margin: 8px 6px 0 0; }
+  button.haupt { background: var(--haupt); color: var(--haupt-fg); border-color: var(--haupt); font-weight: bold; }
+  button.klein { padding: 6px 9px; font-size: 12px; background: var(--klein-knopf); border-color: var(--klein-knopf-fg); color: var(--klein-knopf-fg); }
+  body.toni button.klein { border-color: transparent; }
+  button:disabled { opacity: .35; }
+  .karte { background: var(--karte); border: 1px solid var(--karte-rand); border-radius: var(--radius); box-shadow: var(--karte-schatten); padding: 12px; margin-bottom: 12px; }
+  .karte .kopf { color: var(--titel); text-transform: var(--gross); letter-spacing: .05em; margin: -12px -12px 6px; padding: 8px 12px; background: var(--karte-kopf); border-radius: var(--radius) var(--radius) 0 0; }
+  .feld { margin-top: 8px; }
+  .feld .klein { display: block; margin-bottom: 3px; }
+  .drei { display: flex; gap: 8px; }
+  .drei > div { flex: 1; }
+  .drei input { padding: 8px; }
+  #leiste { position: sticky; top: 0; z-index: 5; background: var(--leiste); margin: -16px -16px 12px; padding: 4px 16px 10px; border-bottom: 1px solid var(--haupt); }
+  #leiste button { margin-right: 10px; }
+  ul.wahl { margin: 4px 0 8px; }
+  ul.wahl li { padding: 11px 6px; cursor: pointer; }
+  ul.wahl li .punkt { display: inline-block; width: 1.4em; color: var(--gedimmt); }
+  ul.wahl li.an { color: var(--titel); }
+  ul.wahl li.an .punkt { color: var(--haupt); }
+  ul.liste li { padding: 10px 2px 12px; }
+</style>
+</head>
+<body class="toni">
+<div id="leiste" style="display:none"></div>
+<div id="app"></div>
+
+<script>
+/*LOGIK*/
+var ZUSTAND = /*ZUSTAND*/null;   // wird vom Handy-Skript beim Öffnen eingesetzt
+var L = Logik();
+var d = L.bereinigen(ZUSTAND || {});
+var standort = (ZUSTAND && ZUSTAND.standort) || null;
+var unterseite = (typeof location !== 'undefined' && /^#[a-z]+$/.test(location.hash)) ? location.hash.slice(1) : '';   // #favoriten: nur für Vorschaubilder
+var suche = {};                    // je Ortsfeld (Schlüssel wie data-k): { treffer: [], fehler: '' }
+var keyTest = '';
+var geaendert = false;
+
+var UNTERSEITEN = [['favoriten', 'Favoriten'], ['strecken', 'Strecken'], ['zeiten', 'Puffer und Erinnerung'], ['anzeige', 'Anzeige auf der Uhr'], ['tomtom', 'TomTom-Schlüssel']];
+
+// ---------- Hilfen ----------
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function vormerken() { geaendert = true; leisteZeigen(); }
+function leisteZeigen() {
+  var l = $('leiste');
+  if (!l) return;
+  l.style.display = geaendert ? 'block' : 'none';
+  l.innerHTML = '<button class="haupt" data-a="speichern">Speichern</button><span class="klein">Nicht gespeichert — schickt alles an die Uhr und schließt</span>';
+}
+// ---------- Editor (seit 0.3.1) ----------
+// Favoriten und Strecken werden nicht mehr direkt in der Liste bearbeitet, sondern wie in Linie 8 über „Ändern“ in einem
+// eigenen Editor auf einer Kopie, mit „Übernehmen“ oder „Verwerfen“. Grund: In der Pebble-App schloss sich die Seite beim
+// Ändern bestehender Einträge, Neuanlegen ging (Seb 2026-10-11). Keine <select>, kein confirm()/alert() mehr: beides
+// funktionierte in der Pebble-App nicht zuverlässig (Favoriten waren bei Strecken nicht wählbar).
+var e = null;                      // { art: 'f' | 's', neu: bool, z: Kopie des Eintrags, fehler: '' }
+var frage = '';                    // Löschfrage offen für diesen Schlüssel ("f3", "s5", "alle-favoriten", "alle-strecken")
+var hinweis = '';                  // einmalige Meldung in der Liste
+
+function kopie(o) { return JSON.parse(JSON.stringify(o)); }
+function leerOrt() { return { name: '', adresse: '', lat: null, lon: null }; }
+
+// Ortsfeld finden: "e" der Eintrag im Editor, "ev" / "en" Start bzw. Ziel der Strecke im Editor
+function objekt(k) {
+  if (!e) return null;
+  if (k === 'e') return e.z;
+  if (k === 'ev') return e.z.von;
+  if (k === 'en') return e.z.nach;
+  return null;
+}
+function eintrag(k) {             // "f3" / "s5" aus der Liste
+  var m = /^([fs])(\d+)$/.exec(k || '');
+  if (!m) return null;
+  var id = parseInt(m[2], 10), liste = m[1] === 'f' ? d.favoriten : d.strecken;
+  for (var i = 0; i < liste.length; i++) if (liste[i].id === id) return liste[i];
+  return null;
+}
+
+// ---------- Übersicht ----------
+function hauptHtml() {
+  var kurz = {
+    favoriten: d.favoriten.length + ' von ' + L.MAXF,
+    strecken: d.strecken.length + ' von ' + L.MAXS,
+    zeiten: 'Zuschlag ' + d.zuschlag + ' %, Puffer ' + d.puffer + ' min, Erinnerung ' + (d.erinnerung ? d.erinnerung + ' min vorher' : 'aus'),
+    anzeige: d.ansicht === 'papier' ? 'Papier' : 'Toni',
+    tomtom: d.key ? 'eingetragen' : 'fehlt'
+  };
+  return '<h1>Fahrzeit</h1><div class="klein">Änderungen gehen erst mit <b>Speichern</b> (oben) an die Uhr. ' +
+    'An der Uhr: beim Start <b>WOHIN?</b>, Select wählt, Select lang öffnet das Menü (Ankunft, Löschen).</div>' +
+    (d.key ? '' : '<div class="hinweis">Ohne TomTom-Schlüssel keine Fahrzeiten.</div>') +
+    '<ul class="menue">' + UNTERSEITEN.map(function (u) {
+      return '<li data-a="geh" data-s="' + u[0] + '">' + u[1] + '<span class="pfeil">›</span><br><span class="klein" style="text-transform:none">' + esc(kurz[u[0]]) + '</span></li>';
+    }).join('') + '</ul><button data-a="speichern">' + (geaendert ? 'Speichern und schließen' : 'Schließen') + '</button>';
+}
+
+// ---------- Bausteine ----------
+function ortHtml(k, o, platzhalter) {
+  var s = suche[k] || {}, h = '<div class="feld"><span class="klein">Adresse oder Ort</span>' +
+    '<input type="text" data-k="' + k + '" data-f="adresse" value="' + esc(o.adresse) + '" placeholder="' + esc(platzhalter) + '" autocomplete="off">' +
+    '<button class="klein" data-a="suchen" data-k="' + k + '">Suchen</button> ';
+  h += typeof o.lat === 'number' ? '<span class="gut">Ort gefunden</span>' : (o.adresse ? '<span class="klein">noch nicht gesucht, die Uhr sucht beim ersten Abruf</span>' : '');
+  if (s.fehler) h += '<div class="fehler">' + esc(s.fehler) + '</div>';
+  if (s.treffer && s.treffer.length) {
+    h += '<ul class="treffer">' + s.treffer.map(function (t, i) {
+      return '<li data-a="treffer" data-k="' + k + '" data-i="' + i + '">' + esc(t.name && t.adresse.indexOf(t.name) < 0 ? t.name + ', ' : '') + esc(t.adresse) + '</li>';
+    }).join('') + '</ul>';
+  }
+  return h + '</div>';
+}
+
+function tolHtml(z) {
+  function f(feld, titel, max) {
+    return '<div><span class="klein">' + titel + '</span><input type="number" inputmode="decimal" min="0" max="' + max + '" data-k="e" data-f="' + feld +
+      '" value="' + esc(z[feld] === null || z[feld] === undefined ? '' : z[feld]) + '" placeholder="' + (feld === 'park' ? '0' : 'allg. ' + d[feld]) + '"></div>';
+  }
+  return '<div class="feld"><span class="klein">Eigene Toleranz für dieses Ziel (leer = allgemein)</span><div class="drei">' +
+    f('puffer', 'Puffer min', 120) + f('park', 'Parken min', 60) + f('zuschlag', 'Zuschlag %', 100) + '</div></div>';
+}
+
+function tolText(z) {
+  var t = [];
+  if (z.puffer !== null && z.puffer !== undefined) t.push('Puffer ' + z.puffer + ' min');
+  if (z.park) t.push('Parken ' + z.park + ' min');
+  if (z.zuschlag !== null && z.zuschlag !== undefined) t.push('Zuschlag ' + z.zuschlag + ' %');
+  return t.join(', ');
+}
+
+// Auswahlzeilen statt <select>: eine Zeile je Wert, die gewählte markiert
+function wahlHtml(art, werte, aktuell) {
+  return '<ul class="wahl">' + werte.map(function (w) {
+    var an = String(w[0]) === String(aktuell);
+    return '<li data-a="wahl" data-w="' + art + '" data-v="' + esc(w[0]) + '" class="' + (an ? 'an' : '') + '"><span class="punkt">' +
+      (an ? '●' : '○') + '</span>' + esc(w[1]) + (w[2] ? '<br><span class="klein">' + esc(w[2]) + '</span>' : '') + '</li>';
+  }).join('') + '</ul>';
+}
+
+// Löschen mit Rückfrage auf der Seite selbst (kein confirm())
+function loeschKnopf(k, text) {
+  if (frage === k) {
+    return '<div class="hinweis">' + esc(text) + '</div><button class="haupt" data-a="loeschenJa" data-k="' + k + '">Ja, löschen</button>' +
+      '<button data-a="loeschenNein">Nein</button>';
+  }
+  return '<button class="klein" data-a="loeschen" data-k="' + k + '">Löschen</button>';
+}
+
+// ---------- Favoriten ----------
+function favoritenHtml() {
+  if (e && e.art === 'f') return favEditorHtml();
+  var h = '<div class="klein">Ziele ab deinem Standort, bis ' + L.MAXF + '. Auf der Uhr nach Häufigkeit sortiert. ' +
+    'Anlegen und ändern nur hier, löschen auch an der Uhr (Select lang).</div>';
+  if (hinweis) h += '<div class="hinweis">' + esc(hinweis) + '</div>';
+  h += '<ul class="liste">';
+  L.reihe(d.favoriten).forEach(function (i) {
+    var f = d.favoriten[i], k = 'f' + f.id, tol = tolText(f);
+    h += '<li><b>' + esc(f.name || L.kurzName(f)) + '</b>' + (f.n ? ' <span class="klein">' + f.n + '× gewählt</span>' : '') +
+      '<br><span class="klein">' + esc(f.adresse) + (tol ? ' · ' + esc(tol) : '') + '</span><br>' +
+      '<button class="klein" data-a="aendern" data-k="' + k + '">Ändern</button>' +
+      loeschKnopf(k, (f.name || L.kurzName(f)) + ' löschen? Strecken mit diesem Favoriten behalten eine Kopie der Adresse.') + '</li>';
+  });
+  h += '</ul>';
+  if (d.favoriten.length < L.MAXF) h += '<button class="haupt" data-a="fneu">+ Neu anlegen</button>';
+  else h += '<div class="klein">Voll (' + L.MAXF + '): erst einen löschen.</div>';
+  if (d.favoriten.length) h += ' ' + loeschKnopf('alle-favoriten', 'Alle ' + d.favoriten.length + ' Favoriten löschen?').replace('>Löschen<', '>Alle ' + d.favoriten.length + ' löschen<');
+  return h;
+}
+
+function favEditorHtml() {
+  return (e.fehler ? '<div class="fehler">' + esc(e.fehler) + '</div>' : '') +
+    '<div class="karte"><div class="kopf">' + (e.neu ? 'Neuer Favorit' : 'Favorit ändern') + '</div>' +
+    '<div class="feld"><span class="klein">Name auf der Uhr, z. B. Arbeit</span>' +
+    '<input type="text" maxlength="20" data-k="e" data-f="name" value="' + esc(e.z.name) + '"></div>' +
+    ortHtml('e', e.z, 'z. B. Parkhaus Kurhaus Wiesbaden') + tolHtml(e.z) + '</div>' +
+    '<button class="haupt" data-a="uebernehmen">Übernehmen</button><button data-a="verwerfen">Verwerfen</button>';
+}
+
+// ---------- Strecken ----------
+function streckenHtml() {
+  if (e && e.art === 's') return streckeEditorHtml();
+  var h = '<div class="klein">Von einem festen Start zu einem Ziel, unabhängig von deinem Standort — etwa wie lange ' +
+    'ein Kollege jetzt von der Arbeit zu dir braucht. Bis ' + L.MAXS + ', auf der Uhr nach Häufigkeit sortiert.</div>';
+  if (hinweis) h += '<div class="hinweis">' + esc(hinweis) + '</div>';
+  h += '<ul class="liste">';
+  L.reihe(d.strecken).forEach(function (i) {
+    var s = d.strecken[i], k = 's' + s.id, tol = tolText(s);
+    h += '<li><b>' + esc(L.streckenName(d, s)) + '</b>' + (s.n ? ' <span class="klein">' + s.n + '× gewählt</span>' : '') +
+      '<br><span class="klein">' + esc(L.kurzName(L.ort(d, s.von))) + ' > ' + esc(L.kurzName(L.ort(d, s.nach))) + (tol ? ' · ' + esc(tol) : '') + '</span><br>' +
+      '<button class="klein" data-a="aendern" data-k="' + k + '">Ändern</button>' +
+      '<button class="klein" data-a="rueck" data-k="' + k + '">Rückfahrt</button>' +
+      loeschKnopf(k, L.streckenName(d, s) + ' löschen?') + '</li>';
+  });
+  h += '</ul>';
+  if (d.strecken.length < L.MAXS) h += '<button class="haupt" data-a="sneu">+ Neu anlegen</button>';
+  else h += '<div class="klein">Voll (' + L.MAXS + '): erst eine löschen.</div>';
+  if (d.strecken.length) h += ' ' + loeschKnopf('alle-strecken', 'Alle ' + d.strecken.length + ' Strecken löschen?').replace('>Löschen<', '>Alle ' + d.strecken.length + ' löschen<');
+  return h;
+}
+
+function endeHtml(welches) {
+  var o = e.z[welches], kk = welches === 'von' ? 'ev' : 'en';
+  var werte = L.reihe(d.favoriten).map(function (i) {
+    var f = d.favoriten[i];
+    return [f.id, f.name || L.kurzName(f), f.adresse];
+  });
+  werte.push(['', 'Andere Adresse', '']);
+  var h = '<h2>' + (welches === 'von' ? 'Von' : 'Nach') + '</h2>' +
+    (d.favoriten.length ? '' : '<div class="klein">Noch keine Favoriten — Adresse eingeben oder erst Favoriten anlegen.</div>') +
+    wahlHtml(welches, werte, !o ? '-' : o.fav !== undefined ? o.fav : '');   // '-': noch nichts gewählt
+  if (o && o.fav === undefined) h += ortHtml(kk, o, welches === 'von' ? 'z. B. Firma des Kollegen' : 'z. B. Zuhause');
+  return h;
+}
+
+function streckeEditorHtml() {
+  return (e.fehler ? '<div class="fehler">' + esc(e.fehler) + '</div>' : '') +
+    '<div class="karte"><div class="kopf">' + (e.neu ? 'Neue Strecke' : 'Strecke ändern') + '</div>' +
+    '<div class="feld"><span class="klein">Name auf der Uhr (leer = Von > Nach)</span>' +
+    '<input type="text" maxlength="20" data-k="e" data-f="name" value="' + esc(e.z.name) + '"></div>' +
+    endeHtml('von') + endeHtml('nach') + tolHtml(e.z) + '</div>' +
+    '<button class="haupt" data-a="uebernehmen">Übernehmen</button><button data-a="verwerfen">Verwerfen</button>';
+}
+
+// Editor prüfen und übernehmen; false = fehlt etwas (Meldung in e.fehler)
+function uebernehmen() {
+  var z = e.z;
+  function ortOk(o) { return o && (o.fav !== undefined ? !!L.favorit(d, o.fav) : String(o.adresse || '').trim() !== ''); }
+  if (e.art === 'f') {
+    if (!String(z.adresse || '').trim()) { e.fehler = 'Adresse fehlt'; return false; }
+    if (!String(z.name || '').trim()) z.name = L.kurzName({ adresse: z.adresse }).substring(0, 20);
+  } else {
+    if (!ortOk(z.von)) { e.fehler = 'Von fehlt: Favorit wählen oder Adresse eingeben'; return false; }
+    if (!ortOk(z.nach)) { e.fehler = 'Nach fehlt: Favorit wählen oder Adresse eingeben'; return false; }
+  }
+  var liste = e.art === 'f' ? d.favoriten : d.strecken, ersetzt = false;
+  for (var i = 0; i < liste.length; i++) if (liste[i].id === z.id) { liste[i] = z; ersetzt = true; }
+  if (!ersetzt) liste.push(z);
+  e = null; suche = {};
+  vormerken();
+  return true;
+}
+
+function zeitenHtml() {
+  return '<div class="klein">Fahrzeit auf der Uhr = TomTom-Zeit × (1 + Zuschlag) + Puffer + Parken. ' +
+    'Jeder Favorit und jede Strecke kann eigene Werte haben, sonst gelten diese.</div>' +
+    '<div class="feld"><span class="klein">Zuschlag in % (allgemein)</span><input type="number" inputmode="decimal" min="0" max="100" data-k="allg" data-f="zuschlag" value="' + d.zuschlag + '"></div>' +
+    '<div class="feld"><span class="klein">Puffer in min (allgemein)</span><input type="number" inputmode="decimal" min="0" max="120" data-k="allg" data-f="puffer" value="' + d.puffer + '"></div>' +
+    '<h2>Erinnerung</h2><div class="klein">Mit Ankunftszeit vibriert die Uhr so lange vor der Abfahrt. Auch an der Uhr: Menü > Einstellungen.</div>' +
+    wahlHtml('erinnerung', L.ERINNERUNGEN.map(function (m) { return [m, m ? m + ' min vorher' : 'aus']; }), d.erinnerung);
+}
+
+function anzeigeHtml() {
+  return '<div class="klein">Gilt für die Uhr und für diese Seite. An der Uhr auch: Menü > Einstellungen > Ansicht.</div>' +
+    wahlHtml('ansicht', [['toni', 'Toni', 'Tonis Original: Systemschrift, farbiger Kopfbalken'],
+                         ['papier', 'Papier', 'Schwarz auf Weiß, alles fett, große Ziffern — am besten lesbar']], d.ansicht === 'papier' ? 'papier' : 'toni');
+}
+
+function tomtomHtml() {
+  return '<div class="klein">Kostenlos auf developer.tomtom.com, ohne Zahlungsdaten. 20.000 Abfragen im Monat frei, ' +
+    'die App braucht einige hundert. Der Schlüssel bleibt auf dem Handy.</div>' +
+    '<div class="feld"><input type="text" id="key" data-k="allg" data-f="key" value="' + esc(d.key) + '" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Schlüssel"></div>' +
+    '<button data-a="keytest">Prüfen</button> <span class="' + (keyTest === 'Schlüssel gilt' ? 'gut' : 'klein') + '">' + esc(keyTest) + '</span>';
+}
+
+function zeige() {
+  var titel = (UNTERSEITEN.filter(function (u) { return u[0] === unterseite; })[0] || [])[1];
+  var inhalt = { favoriten: favoritenHtml, strecken: streckenHtml, zeiten: zeitenHtml, anzeige: anzeigeHtml, tomtom: tomtomHtml }[unterseite];
+  document.body.className = d.ansicht === 'papier' ? 'papier' : 'toni';
+  var zurueck = e ? '' : '<button class="klein" data-a="uebersicht">‹ Übersicht</button>';
+  $('app').innerHTML = inhalt ? zurueck + '<h1>' + titel + '</h1>' + inhalt() : hauptHtml();
+  leisteZeigen();
+}
+
+function fokus(k, f) {
+  var inp = document.querySelector && document.querySelector('[data-k="' + k + '"][data-f="' + f + '"]');
+  if (!inp) return;
+  if (inp.scrollIntoView) inp.scrollIntoView({ block: 'center' });
+  inp.focus();
+}
+
+// ---------- Suche bei TomTom ----------
+function suchen(k) {
+  var o = objekt(k);
+  if (!o) return;
+  var text = String(o.adresse || '').trim();
+  if (!text) { suche[k] = { fehler: 'Erst eine Adresse eintippen' }; return zeige(); }
+  if (!d.key) { suche[k] = { fehler: 'Erst den TomTom-Schlüssel eintragen' }; return zeige(); }
+  var x = new XMLHttpRequest();
+  x.open('GET', L.suchUrl(text, d.key, standort), true);
+  x.timeout = 15000;
+  x.onload = function () {
+    if (x.status !== 200) { suche[k] = { fehler: (x.status === 401 || x.status === 403) ? 'Schlüssel falsch oder Kontingent leer' : 'TomTom-Fehler ' + x.status }; return zeige(); }
+    var t = [];
+    try { t = L.treffer(JSON.parse(x.responseText)); } catch (err) { t = []; }
+    suche[k] = t.length ? { treffer: t } : { fehler: 'Nichts gefunden' };
+    zeige();
+  };
+  x.onerror = x.ontimeout = function () {
+    suche[k] = { fehler: 'Suche hier nicht möglich — die Uhr sucht die Adresse beim ersten Abruf' };
+    zeige();
+  };
+  suche[k] = { fehler: '' };
+  x.send();
+}
+
+function keyPruefen() {
+  if (!d.key) { keyTest = 'Erst eintragen'; return zeige(); }
+  keyTest = 'prüfe …'; zeige();
+  var x = new XMLHttpRequest();
+  x.open('GET', L.suchUrl('Berlin', d.key, null), true);
+  x.timeout = 15000;
+  x.onload = function () { keyTest = x.status === 200 ? 'Schlüssel gilt' : (x.status === 401 || x.status === 403) ? 'Schlüssel falsch oder Kontingent leer' : 'TomTom-Fehler ' + x.status; zeige(); };
+  x.onerror = x.ontimeout = function () { keyTest = 'Hier nicht prüfbar, an der Uhr testen'; zeige(); };
+  x.send();
+}
+
+function schliessen() {
+  if (e) uebernehmen();            // offener Editor: übernehmen, wenn vollständig
+  document.location = 'pebblejs://close#' + encodeURIComponent(JSON.stringify(d));
+}
+
+// ---------- Eingaben ----------
+document.addEventListener('input', function (ev) {
+  var el = ev.target, k = el.getAttribute && el.getAttribute('data-k'), f = el.getAttribute && el.getAttribute('data-f');
+  if (!k || !f) return;
+  var o = k === 'allg' ? d : objekt(k);
+  if (!o) return;
+  if (f === 'name' || f === 'key') o[f] = f === 'key' ? el.value.trim() : el.value;
+  else if (f === 'adresse') { o.adresse = el.value; o.lat = null; o.lon = null; }
+  else if (k === 'allg') o[f] = L.zahl(el.value, 0, f === 'zuschlag' ? 100 : 120) || 0;
+  else o[f] = L.zahl(el.value, 0, f === 'zuschlag' ? 100 : f === 'park' ? 60 : 120);
+  if (f === 'key') keyTest = '';
+  if (k === 'allg') vormerken();   // Editor: erst „Übernehmen“ merkt vor
+});
+
+document.addEventListener('click', function (ev) {
+  var el = ev.target;
+  while (el && el !== document && !(el.getAttribute && el.getAttribute('data-a'))) el = el.parentNode;
+  if (!el || el === document) return;
+  var a = el.getAttribute('data-a'), k = el.getAttribute('data-k');
+  if (a !== 'loeschen' && a !== 'loeschenJa') frage = '';
+  if (a !== 'rueck') hinweis = '';
+  if (a === 'speichern') return geaendert || e ? schliessen() : (document.location = 'pebblejs://close');
+  if (a === 'geh') { unterseite = el.getAttribute('data-s'); e = null; window.scrollTo && window.scrollTo(0, 0); return zeige(); }
+  if (a === 'uebersicht') { unterseite = ''; return zeige(); }
+  if (a === 'suchen') return suchen(k);
+  if (a === 'keytest') return keyPruefen();
+  if (a === 'wahl') {
+    var art = el.getAttribute('data-w'), v = el.getAttribute('data-v');
+    if (art === 'erinnerung') { d.erinnerung = parseInt(v, 10) || 0; vormerken(); }
+    else if (art === 'ansicht') { d.ansicht = v === 'papier' ? 'papier' : 'toni'; vormerken(); }
+    else if (e && (art === 'von' || art === 'nach')) {
+      var alt = e.z[art];
+      e.z[art] = v ? { fav: parseInt(v, 10) } : (alt && alt.fav === undefined ? alt : leerOrt());
+      zeige();
+      if (!v) fokus(art === 'von' ? 'ev' : 'en', 'adresse');
+      return;
+    }
+    return zeige();
+  }
+  if (a === 'treffer') {
+    var o = objekt(k), t = suche[k] && suche[k].treffer[parseInt(el.getAttribute('data-i'), 10)];
+    if (!o || !t) return;
+    o.adresse = t.adresse || t.name; o.lat = t.lat; o.lon = t.lon;
+    if (k === 'e' && !String(o.name || '').trim()) o.name = (t.name || '').substring(0, 20);
+    delete suche[k];
+    return zeige();
+  }
+  if (a === 'aendern') {
+    var z = eintrag(k);
+    if (!z) return;
+    e = { art: k.charAt(0), neu: false, z: kopie(z), fehler: '' };
+    suche = {}; zeige(); window.scrollTo && window.scrollTo(0, 0);
+    return;
+  }
+  if (a === 'fneu') {
+    e = { art: 'f', neu: true, z: { id: d.nid++, name: '', adresse: '', lat: null, lon: null, n: 0, zuschlag: null, puffer: null, park: null }, fehler: '' };
+    suche = {}; zeige();
+    return fokus('e', 'name');
+  }
+  if (a === 'sneu') {
+    e = { art: 's', neu: true, z: { id: d.nid++, name: '', von: leerOrt(), nach: leerOrt(), n: 0, zuschlag: null, puffer: null, park: null }, fehler: '' };
+    if (d.favoriten.length) { e.z.von = null; e.z.nach = null; }   // erst wählen lassen
+    suche = {}; return zeige();
+  }
+  if (a === 'uebernehmen') { uebernehmen(); return zeige(); }
+  if (a === 'verwerfen') { e = null; suche = {}; return zeige(); }
+  if (a === 'rueck') {
+    if (d.strecken.length >= L.MAXS) { hinweis = 'Strecken voll (' + L.MAXS + '): erst eine löschen.'; return zeige(); }
+    var s = eintrag(k), c = kopie(s);
+    d.strecken.push({ id: d.nid++, name: '', von: c.nach, nach: c.von, n: 0, zuschlag: c.zuschlag, puffer: c.puffer, park: c.park });
+    hinweis = 'Rückfahrt angelegt.';
+    vormerken(); return zeige();
+  }
+  if (a === 'loeschen') { frage = k; return zeige(); }
+  if (a === 'loeschenNein') { frage = ''; return zeige(); }
+  if (a === 'loeschenJa') {
+    frage = '';
+    if (k === 'alle-favoriten') d.favoriten.slice().forEach(function (x) { L.loeschen(d, x.id); });
+    else if (k === 'alle-strecken') d.strecken = [];
+    else { var w = eintrag(k); if (w) L.loeschen(d, w.id); }
+    vormerken(); return zeige();
+  }
+});
+
+// ---------- Android-Zurück abfangen (ungeprüft, ob die Pebble-App es weiterreicht) ----------
+// Zurück im Editor übernimmt (wenn vollständig, sonst verworfen), in einer Unterseite geht es zur Übersicht, dort
+// schließt es (mit Daten, falls etwas geändert ist). Das automatische Schließen bei „visibilitychange“ ist seit 0.3.1
+// entfernt: es stand im Verdacht, die Seite beim Ändern zu schließen.
+function zurueckFangen() { try { history.pushState({ fz: 1 }, ''); } catch (err) { console.log('pushState: ' + err); } }
+if (typeof window !== 'undefined' && typeof history !== 'undefined') {
+  zurueckFangen();
+  window.addEventListener('popstate', function () {
+    if (e) { if (!uebernehmen()) e = null; zurueckFangen(); return zeige(); }
+    if (unterseite) { unterseite = ''; zurueckFangen(); return zeige(); }
+    if (geaendert) return schliessen();
+    document.location = 'pebblejs://close';
+  });
+}
+
+zeige();
+</script>
+</body>
+</html>

@@ -1,17 +1,14 @@
 {
   "name": "fahrzeit",
   "author": "Toni",
-  "version": "1.0.0",
+  "version": "0.4.0",
   "keywords": [
     "pebble-app"
   ],
   "private": true,
-  "dependencies": {
-    "@rebble/clay": "^1.0.8"
-  },
   "pebble": {
     "displayName": "Fahrzeit",
-    "uuid": "4b05f597-8cf8-4a99-8263-5d086fb8dc87",
+    "uuid": "4f85fa08-d196-4078-8ddd-f7e7a04788c8",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
@@ -21,7 +18,8 @@
       "watchface": false
     },
     "capabilities": [
-      "configurable"
+      "configurable",
+      "location"
     ],
     "messageKeys": [
       "MINUTES",
@@ -30,18 +28,14 @@
       "UPDATED",
       "STATUS",
       "REQUEST",
-      "DIRECTION",
-      "SWITCH",
       "JS_READY",
-      "LABEL_OUT",
-      "LABEL_BACK",
-      "TOMTOM_KEY",
-      "PLACE_A",
-      "PLACE_B",
-      "SWITCH_TIME",
-      "SURCHARGE",
-      "BUFFER_OUT",
-      "BUFFER_BACK"
+      "ZIEL",
+      "ANKUNFT",
+      "ZAEHLEN",
+      "LISTE",
+      "LOESCHEN",
+      "ERINNERUNG",
+      "ANSICHT"
     ],
     "resources": {
       "media": [
@@ -50,6 +44,12 @@
           "name": "MENU_ICON",
           "file": "images/menu_icon.png",
           "menuIcon": true
+        },
+        {
+          "type": "font",
+          "name": "ROBOTO_BOLD_60",
+          "file": "fonts/Ziffern-Roboto-Bold.ttf",
+          "characterRegex": "[0-9:'+-]"
         }
       ]
     }
