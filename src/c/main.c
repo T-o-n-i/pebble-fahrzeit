@@ -22,6 +22,9 @@
 // Ruhe in Listen und Zeitwahl, danach zurück zur Seite bzw. raus; NEUES ZIEL? zählt dann als NEIN
 #define RUHE_MS 30000
 #define RUHE_FRAGE_MS 10000
+// Solange die Einstellungen am Handy offen sind, nicht von selbst beenden: sonst schließt die Pebble-App die Seite.
+// Höchstens so lange, falls die Meldung „geschlossen“ ausbleibt
+#define EINSTELLUNGEN_MAX (15 * SECONDS_PER_MINUTE)
 
 // persist: alte Schlüssel 1–5 (0.1.0) werden beim ersten Start gelöscht
 #define PK_FORMAT 10
@@ -66,6 +69,7 @@ typedef enum { L_WOHIN, L_ZIELMENUE, L_MENUE, L_EINST, L_ERINNERUNG, L_NEUES_ZIE
 static Window *s_window;
 static Layer *s_canvas;
 static AppTimer *s_timeout, *s_ruhe, *s_blink_timer;
+static time_t s_einstellungen_bis;   // bis dahin gelten die Einstellungen am Handy als offen
 
 static RouteData s_route = { .minutes = -1 };
 static RouteData *s_data = &s_route;
@@ -403,6 +407,13 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
     s_erinnerung = t->value->int32;
     persist_write_int(PK_ERINNERUNG, s_erinnerung);
     wecker_stellen();
+  }
+  t = dict_find(iter, MESSAGE_KEY_EINSTELLUNGEN);
+  if (t) {
+    s_einstellungen_bis = t->value->int32 ? time(NULL) + EINSTELLUNGEN_MAX : 0;
+    if (!s_einstellungen_bis && s_modus != M_SEITE) {
+      ruhe_starten();   // nach dem Schließen wieder die vollen 30 s
+    }
   }
   t = dict_find(iter, MESSAGE_KEY_LISTE);
   if (t) {
@@ -1132,6 +1143,10 @@ static void zeit_taste(ButtonId b) {
 static void ruhe_abgelaufen(void *ctx) {
   s_ruhe = NULL;
   if (s_modus == M_SEITE) {
+    return;
+  }
+  if (time(NULL) < s_einstellungen_bis) {
+    ruhe_starten();
     return;
   }
   if (s_modus == M_LISTE && s_lart == L_NEUES_ZIEL) {

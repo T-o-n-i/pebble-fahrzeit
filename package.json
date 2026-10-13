@@ -35,7 +35,8 @@
       "LISTE",
       "LOESCHEN",
       "ERINNERUNG",
-      "ANSICHT"
+      "ANSICHT",
+      "EINSTELLUNGEN"
     ],
     "resources": {
       "media": [

@@ -206,7 +206,16 @@ Pebble.addEventListener('appmessage', function (e) {
 });
 
 // ---------- Einstellungen: eingebettete Seite (wie Linie 8) ----------
+// Die Uhr beendet sich in Listen nach 30 s ohne Taste; dann schließt die Pebble-App auch die Einstellungen.
+// Deshalb meldet das Handy, solange die Seite offen ist.
+function einstellungenOffen(offen) {
+  var m = {};
+  m[keys.EINSTELLUNGEN] = offen ? 1 : 0;
+  senden(m);
+}
+
 Pebble.addEventListener('showConfiguration', function () {
+  einstellungenOffen(true);
   // Standort hier holen und mitgeben: die Seite selbst darf es nicht (Android: nur sichere Herkunft)
   standort(function (f, ort) {          // nur für die Suche in der Nähe, höchstens 4 s warten
     var zustand = datenLesen();
@@ -217,6 +226,7 @@ Pebble.addEventListener('showConfiguration', function () {
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {
+  einstellungenOffen(false);
   if (!e || !e.response) return;
   try {
     var neu = L.bereinigen(JSON.parse(decodeURIComponent(e.response)));
