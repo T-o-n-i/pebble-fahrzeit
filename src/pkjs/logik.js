@@ -12,6 +12,8 @@
 //   strecken     [{ id, name, von, nach, n, zuschlag, puffer, park }]           fester Start → Ziel
 //                von/nach: { fav: id } oder { adresse, lat, lon, name }
 //   n = wie oft an der Uhr gewählt (Reihenfolge nach Häufigkeit), zuschlag/puffer/park: null = wie allgemein
+//   Toleranz gehört zum Ziel: Endet eine Strecke an einem Favoriten, gelten dessen Werte, die der Strecke bleiben null.
+//   Nur Strecken zu einer anderen Adresse haben eigene Werte.
 function Logik() {
   var MAXF = 20, MAXS = 10;
   var ERINNERUNGEN = [0, 5, 10, 15, 20, 30];
@@ -28,10 +30,18 @@ function Logik() {
     return Math.min(Math.max(v, min), max);
   }
 
+  var TOL = ['zuschlag', 'puffer', 'park'];
+
+  // Wo die Toleranz eines Eintrags steht: bei einer Strecke zu einem Favoriten beim Favoriten, sonst beim Eintrag selbst
+  function toleranzVon(d, z) {
+    return (z && z.nach && z.nach.fav !== undefined && favorit(d, z.nach.fav)) || z;
+  }
+
   // Zuschlag, Puffer, Parken für ein Ziel: eigener Wert, sonst der allgemeine (Parken allgemein 0)
   function korrektur(ziel, d) {
     function w(eigen, allg) { return eigen === null || eigen === undefined ? (allg || 0) : eigen; }
-    return { zuschlag: w(ziel.zuschlag, d.zuschlag), puffer: w(ziel.puffer, d.puffer), park: w(ziel.park, 0) };
+    var t = toleranzVon(d, ziel);
+    return { zuschlag: w(t.zuschlag, d.zuschlag), puffer: w(t.puffer, d.puffer), park: w(t.park, 0) };
   }
 
   // TomTom-Sekunden → Minuten auf der Uhr
@@ -96,11 +106,12 @@ function Logik() {
     return z.join('\n');
   }
 
-  // Favorit löschen; Strecken, die ihn nutzen, behalten eine Kopie des Orts (wie Linie 8)
+  // Favorit löschen; Strecken, die ihn nutzen, behalten eine Kopie des Orts (wie Linie 8), als Ziel auch seine Toleranz
   function favoritLoeschen(d, id) {
     var f = favorit(d, id);
     if (!f) return;
     d.strecken.forEach(function (s) {
+      if (s.nach && s.nach.fav === id) TOL.forEach(function (t) { s[t] = f[t]; });
       ['von', 'nach'].forEach(function (k) {
         if (s[k] && s[k].fav === id) s[k] = { name: f.name, adresse: f.adresse, lat: f.lat, lon: f.lon };
       });
@@ -199,6 +210,16 @@ function Logik() {
       if (!von || !nach) return;
       d.strecken.push(tol(s, { id: parseInt(s.id, 10), name: String(s.name || '').trim(), von: von, nach: nach }));
     });
+    // Strecken zu einem Favoriten: Toleranz gehört dem Favoriten. Eigene Werte aus 0.4.0 gehen an ihn, wenn er dort
+    // noch keinen hat (erste Strecke in der Liste gewinnt), danach sind sie bei der Strecke leer.
+    d.strecken.forEach(function (s) {
+      var f = toleranzVon(d, s);
+      if (f === s) return;
+      TOL.forEach(function (t) {
+        if (f[t] === null && s[t] !== null) f[t] = s[t];
+        s[t] = null;
+      });
+    });
     // Nummern eindeutig halten
     var gesehen = {};
     d.favoriten.concat(d.strecken).forEach(function (z) {
@@ -209,7 +230,8 @@ function Logik() {
     return d;
   }
 
-  return { MAXF: MAXF, MAXS: MAXS, ERINNERUNGEN: ERINNERUNGEN, leer: leer, zahl: zahl, korrektur: korrektur, minuten: minuten,
+  return { MAXF: MAXF, MAXS: MAXS, ERINNERUNGEN: ERINNERUNGEN, TOL: TOL, leer: leer, zahl: zahl, toleranzVon: toleranzVon,
+           korrektur: korrektur, minuten: minuten,
            sortDe: sortDe, reihe: reihe, favorit: favorit, ort: ort, kurzName: kurzName, streckenName: streckenName,
            utf8Kuerzen: utf8Kuerzen, listeText: listeText, loeschen: loeschen, finden: finden, koordinaten: koordinaten,
            suchUrl: suchUrl, treffer: treffer, ausAlt: ausAlt, bereinigen: bereinigen };

@@ -132,6 +132,28 @@ tomtomAntwort = function (u) {
   assert.ok(uhr.some(function (m) { return m.ANSICHT === 1; }), 'Phosphor aus 0.3.1 wird Papier');
   console.log('ok  Ansicht Phosphor aus 0.3.1 wird Papier');
 
+  // 5b. Toleranz gehört zum Ziel-Favoriten: eigene Werte einer Strecke dorthin gehen an den Favoriten (nur wo er keine hat)
+  d = JSON.parse(speicher.fahrzeit);
+  var sid = d.nid++;
+  d.strecken.push({ id: sid, name: '', von: { name: 'Kollege', adresse: '50,07; 8,24' }, nach: { fav: 1 }, n: 0, zuschlag: null, puffer: '7', park: '4' });
+  lauscher.webviewclosed({ response: encodeURIComponent(JSON.stringify(d)) });
+  await warte();
+  d = JSON.parse(speicher.fahrzeit);
+  var sx = d.strecken.filter(function (s) { return s.id === sid; })[0];
+  assert.strictEqual(d.favoriten[0].park, 4); assert.strictEqual(d.favoriten[0].puffer, 0, 'Favorit hatte Puffer 0, bleibt');
+  assert.strictEqual(sx.park, null); assert.strictEqual(sx.puffer, null);
+  senden({ REQUEST: 1, ZIEL: sid, ANKUNFT: 0 });
+  await warte(120);
+  assert.strictEqual(letzte().MINUTES, 26, '22 + Puffer 0 + Parken 4 vom Favoriten');
+  senden({ REQUEST: 1, ZIEL: 1, ANKUNFT: 0 });
+  await warte(120);
+  assert.strictEqual(letzte().MINUTES, 26, 'gilt auch ab Standort');
+  var L = require(path.join(basis, 'logik.js'))();
+  L.loeschen(d, 1);
+  sx = d.strecken.filter(function (s) { return s.id === sid; })[0];
+  assert.strictEqual(sx.park, 4); assert.strictEqual(sx.puffer, 0); assert.strictEqual(sx.nach.fav, undefined);
+  console.log('ok  Toleranz beim Ziel-Favoriten, bleibt beim Löschen erhalten');
+
   // 6. Ohne Schlüssel
   d.key = ''; speicher.fahrzeit = JSON.stringify(d);
   senden({ REQUEST: 1, ZIEL: 1, ANKUNFT: 0 });

@@ -47,6 +47,11 @@
           "menuIcon": true
         },
         {
+          "type": "bitmap",
+          "name": "HINWEIS_MENUE",
+          "file": "images/hinweis_menue.png"
+        },
+        {
           "type": "font",
           "name": "ROBOTO_BOLD_60",
           "file": "fonts/Ziffern-Roboto-Bold.ttf",

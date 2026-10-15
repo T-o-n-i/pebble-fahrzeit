@@ -6,11 +6,11 @@ Schwester-Projekt: [pebble-fahrzeit-HA](https://github.com/T-o-n-i/pebble-fahrze
 
 Plattform: emery (Pebble Time 2).
 
-![Toni](screenshots/toni.png)
+![Dunkel](screenshots/toni.png)
 
 ![Papier](screenshots/papier.png)
 
-*Oben die Ansicht „Toni“ (Standard), unten „Papier“: Fahrzeit, Menü, Ankunftszeit wählen und bestätigen.*
+*Oben die Ansicht „Dunkel“ (Standard), unten „Papier“: Fahrzeit, Menü, Ankunftszeit wählen und bestätigen.*
 
 ## Einrichten
 
@@ -38,7 +38,7 @@ Wer schon die alte Version mit Ort 1 und Ort 2 hatte: Beim ersten Start werden b
 
 ## Ansichten
 
-| | Toni (Standard) | Papier |
+| | Dunkel (Standard) | Papier |
 |---|---|---|
 | Uhr | Tonis Original: schwarz, Kopfzeile in der Stau-Farbe, LECO-Ziffern, Stau als Pille | schwarz auf weiß, alles fett, kein Grau in der Schrift, Ziffern in Roboto Bold. Am besten lesbar bei Tageslicht |
 | Einstellungsseite | dunkles Grau mit Orange wie die bisherige Clay-Seite | weiß, schwarz, fett |
@@ -54,10 +54,10 @@ Eigene Seite statt Clay, mit Übersicht und Unterseiten. Änderungen werden erst
 | Favoriten | bis 20 Ziele mit Name und Adresse (Suche über TomTom) und eigener Toleranz |
 | Strecken | bis 10 Fahrten mit festem Start, etwa der Heimweg eines Kollegen. Mit Rückfahrt auf Knopfdruck |
 | Puffer und Erinnerung | allgemeiner Zuschlag in %, Puffer in Minuten, Vorlauf der Erinnerung |
-| Anzeige auf der Uhr | Toni oder Papier |
+| Anzeige auf der Uhr | Dunkel oder Papier |
 | TomTom-Key | Eingabe und Prüfen |
 
-TomTom rechnet eher optimistisch. Angezeigt wird deshalb `Fahrzeit von TomTom × (1 + Zuschlag) + Puffer + Parken`, gerundet auf ganze Minuten. Zuschlag und Puffer gelten allgemein, jeder Favorit und jede Strecke kann eigene Werte haben (etwa mehr Toleranz zur Arbeit), Parken nur je Ziel. Stau-Minuten und Farbe bleiben bei den Werten von TomTom.
+TomTom rechnet eher optimistisch. Angezeigt wird deshalb `Fahrzeit von TomTom × (1 + Zuschlag) + Puffer + Parken`, gerundet auf ganze Minuten. Zuschlag und Puffer gelten allgemein, jeder Favorit kann eigene Werte haben (etwa mehr Toleranz zur Arbeit), Parken nur je Ziel. Die Toleranz gehört zum Ziel: Eine Strecke zu einem Favoriten rechnet mit dessen Werten, und wer sie bei der Strecke ändert, ändert sie für den Favoriten. Nur Strecken zu einer anderen Adresse haben eigene Werte. Stau-Minuten und Farbe bleiben bei den Werten von TomTom.
 
 Orte gehen als Koordinaten oder als Adresse:
 

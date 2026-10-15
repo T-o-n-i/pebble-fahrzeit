@@ -4,7 +4,7 @@
 // Start mit der Frage WOHIN? (Favoriten ab Standort oder gespeicherte Strecken), Wahl gilt 1 h bzw. bis 10 min nach
 // der Abfahrt, optional Ankunftszeit mit Erinnerung vor der Abfahrt. Bedienung und Begriffe wie Linie 8.
 // Das Handy (src/pkjs) hält Favoriten und Strecken, fragt TomTom ab und schickt fertige Minuten.
-// Zwei Ansichten: „Toni“ (Standard, Tonis Original-Skin mit Systemschriften) und seit 0.4.0 „Papier“ (schwarz auf weiß,
+// Zwei Ansichten: „Dunkel“ (intern toni, Standard, Tonis Original-Skin mit Systemschriften) und seit 0.4.0 „Papier“ (schwarz auf weiß,
 // fett, wie in Simzeit und Linie 8). Die Ansicht Phosphor (0.1.0 bis 0.3.1) ist entfernt.
 
 // Neue Abfrage, solange die App offen ist
@@ -502,7 +502,7 @@ static GFont s_g18, s_g18b, s_g24, s_g24b, s_g28b, s_leco60, s_roboto60;
 
 // Ansicht Papier (wie in Simzeit und Linie 8): Tonis Aufbau, aber schwarz auf weiß, alles fett, kein Grau in der
 // Schrift, Ziffern in Roboto Bold statt LECO. Toni behält seine Farben unverändert.
-static GColor s_hg, s_vg, s_neben, s_linie, s_warn, s_fehler, s_kopf_hg, s_kopf_vg, s_wahl_hg, s_wahl_vg;
+static GColor s_hg, s_vg, s_neben, s_linie, s_warn, s_fehler, s_kopf_hg, s_kopf_vg, s_wahl_hg, s_wahl_vg, s_abschnitt_hg, s_abschnitt_vg;
 static GFont s_t18, s_t24, s_ziffern;
 static int s_ziffern_dy;                 // Roboto sitzt im Rahmen anders als LECO
 static void farben_setzen(void) {
@@ -517,6 +517,8 @@ static void farben_setzen(void) {
   s_kopf_vg = PAPIER ? GColorBlack : GColorWhite;
   s_wahl_hg = PAPIER ? GColorBlack : GColorWhite;
   s_wahl_vg = PAPIER ? GColorWhite : GColorBlack;
+  s_abschnitt_hg = PAPIER ? GColorLightGray : GColorOrange;   // Orange wie die Einstellungsseite in Dunkel
+  s_abschnitt_vg = PAPIER ? GColorBlack : GColorWhite;
   s_t18 = PAPIER ? s_g18b : s_g18;
   s_t24 = PAPIER ? s_g24b : s_g24;
   s_ziffern = PAPIER ? s_roboto60 : s_leco60;
@@ -524,6 +526,7 @@ static void farben_setzen(void) {
   if (s_window) window_set_background_color(s_window, s_hg);
 }
 static GPath *s_arrow_up, *s_arrow_down;
+static GBitmap *s_hinweis;              // „halten: Menü“ hochkant neben Select, Bild aus resources/images
 static GPoint s_up_points[] = { { 0, -10 }, { 10, 6 }, { -10, 6 } };
 static GPoint s_down_points[] = { { 0, 10 }, { 10, -6 }, { -10, -6 } };
 static const GPathInfo ARROW_UP_INFO = { .num_points = 3, .points = s_up_points };
@@ -710,6 +713,21 @@ static void t_footer(GContext *ctx, time_t now) {
   t_fuss(ctx, text, color);
 }
 
+// Kleiner Hinweis am rechten Rand auf Höhe von Select: Select lang öffnet das Menü (dort die Einstellungen).
+// Pebble dreht keinen Text, deshalb ein fertig gedrehtes Bild mit zwei Farben, die Schriftfarbe kommt aus der Palette.
+static void t_hinweis(GContext *ctx) {
+  if (!s_hinweis) return;
+  GColor *pal = gbitmap_get_palette(s_hinweis);
+  const int n = gbitmap_get_format(s_hinweis) == GBitmapFormat1BitPalette ? 2 : 4;
+  for (int i = 0; pal && i < n; i++) {
+    if (pal[i].a) pal[i] = s_neben;
+  }
+  const GSize sz = gbitmap_get_bounds(s_hinweis).size;
+  graphics_context_set_compositing_mode(ctx, GCompOpSet);
+  graphics_draw_bitmap_in_rect(ctx, s_hinweis, GRect(200 - sz.w - 1, 114 - sz.h / 2, sz.w, sz.h));
+  graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+}
+
 static void t_seite(GContext *ctx, time_t now) {
   char titel[40];
   ziel_titel(s_wahl.typ, s_wahl.name, titel, sizeof(titel));
@@ -718,6 +736,7 @@ static void t_seite(GContext *ctx, time_t now) {
   t_delay(ctx);
   t_details(ctx, now);
   t_footer(ctx, now);
+  t_hinweis(ctx);
 }
 
 // Gewählte Zeile als weiße Pille (Rundung wie Tonis Stau-Pille), Schrift schwarz und fett
@@ -743,8 +762,10 @@ static void t_liste(GContext *ctx, time_t now) {
     if (y + T_ZEILE > T_FUSS + 1) {
       break;
     }
-    if (s_lwert[i] == -1) {
-      t_text(ctx, s_ltext[i], s_g18b, GRect(10, y + 5, 182, 22), GTextAlignmentLeft, s_neben);
+    if (s_lwert[i] == -1) {               // Abschnitt (Favoriten, Strecken): farbiges Band über die ganze Breite
+      graphics_context_set_fill_color(ctx, s_abschnitt_hg);
+      graphics_fill_rect(ctx, GRect(0, y + 3, 200, 24), 0, GCornerNone);
+      t_text(ctx, s_ltext[i], s_g18b, GRect(10, y + 3, 182, 22), GTextAlignmentLeft, s_abschnitt_vg);
     } else if (s_lwert[i] < 0) {
       t_text(ctx, s_ltext[i], s_t18, GRect(10, y + 3, 182, 22), GTextAlignmentLeft, s_neben);
     } else {
@@ -954,7 +975,7 @@ static void zeige_einst(void) {
     strcpy(a, "Erinnerung: aus");
   }
   liste_zeile(a, 0);
-  liste_zeile(PAPIER ? "Ansicht Papier" : "Ansicht Toni", 1);
+  liste_zeile(PAPIER ? "Ansicht Papier" : "Ansicht Dunkel", 1);
   liste_zeile("Am Handy", -1);
   liste_zeile("Favoriten, Strecken,", -2);
   liste_zeile("Puffer, Zuschlag", -2);
@@ -963,7 +984,7 @@ static void zeige_einst(void) {
 
 static void zeige_ansicht(void) {
   liste_beginnen(L_ANSICHT, "Ansicht", NULL);
-  liste_zeile("Toni", 0);
+  liste_zeile("Dunkel", 0);
   liste_zeile("Papier", 1);
   liste_fertig(s_ansicht);
 }
@@ -1413,6 +1434,7 @@ static void init(void) {
   farben_setzen();
   s_arrow_up = gpath_create(&ARROW_UP_INFO);
   s_arrow_down = gpath_create(&ARROW_DOWN_INFO);
+  s_hinweis = gbitmap_create_with_resource(RESOURCE_ID_HINWEIS_MENUE);
 
   s_session_start = time(NULL);
   s_last_request = s_session_start;
@@ -1458,6 +1480,7 @@ static void deinit(void) {
   if (s_roboto60) fonts_unload_custom_font(s_roboto60);
   gpath_destroy(s_arrow_up);
   gpath_destroy(s_arrow_down);
+  if (s_hinweis) gbitmap_destroy(s_hinweis);
 }
 
 int main(void) {

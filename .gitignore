@@ -1,4 +1,5 @@
 build/
+dist/
 .lock-waf*
 .DS_Store
 node_modules/

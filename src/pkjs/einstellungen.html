@@ -37,6 +37,8 @@
   ul.menue li { padding: 14px 10px; font-size: 16px; text-transform: var(--gross); letter-spacing: .04em; }
   ul.menue li:last-child { border-bottom: 0; }
   ul.menue .pfeil { float: right; color: var(--betont); font-size: 20px; line-height: 18px; }
+  button.zurueck { margin-bottom: 10px; }
+  button.zurueck .pfeil { color: var(--betont); font-size: 32px; line-height: 0; font-weight: bold; vertical-align: -4px; margin-right: 8px; }
   ul.treffer li { padding: 9px 6px; font-size: 14px; }
   input[type=text], input[type=number], select { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; font-size: 16px;
     border: 1px solid var(--eingabe-rand); border-radius: var(--radius); background: var(--eingabe); color: var(--eingabe-fg); -webkit-appearance: none; }
@@ -126,7 +128,7 @@ function hauptHtml() {
     favoriten: d.favoriten.length + ' von ' + L.MAXF,
     strecken: d.strecken.length + ' von ' + L.MAXS,
     zeiten: 'Zuschlag ' + d.zuschlag + ' %, Puffer ' + d.puffer + ' min, Erinnerung ' + (d.erinnerung ? d.erinnerung + ' min vorher' : 'aus'),
-    anzeige: d.ansicht === 'papier' ? 'Papier' : 'Toni',
+    anzeige: d.ansicht === 'papier' ? 'Papier' : 'Dunkel',
     tomtom: d.key ? 'eingetragen' : 'fehlt'
   };
   return '<h1>Fahrzeit</h1><div class="klein">Änderungen gehen erst mit <b>Speichern</b> (oben) an die Uhr. ' +
@@ -152,12 +154,12 @@ function ortHtml(k, o, platzhalter) {
   return h + '</div>';
 }
 
-function tolHtml(z) {
+function tolHtml(z, titel) {
   function f(feld, titel, max) {
     return '<div><span class="klein">' + titel + '</span><input type="number" inputmode="decimal" min="0" max="' + max + '" data-k="e" data-f="' + feld +
       '" value="' + esc(z[feld] === null || z[feld] === undefined ? '' : z[feld]) + '" placeholder="' + (feld === 'park' ? '0' : 'allg. ' + d[feld]) + '"></div>';
   }
-  return '<div class="feld"><span class="klein">Eigene Toleranz für dieses Ziel (leer = allgemein)</span><div class="drei">' +
+  return '<div class="feld"><span class="klein">' + esc(titel) + '</span><div class="drei">' +
     f('puffer', 'Puffer min', 120) + f('park', 'Parken min', 60) + f('zuschlag', 'Zuschlag %', 100) + '</div></div>';
 }
 
@@ -213,7 +215,8 @@ function favEditorHtml() {
     '<div class="karte"><div class="kopf">' + (e.neu ? 'Neuer Favorit' : 'Favorit ändern') + '</div>' +
     '<div class="feld"><span class="klein">Name auf der Uhr, z. B. Arbeit</span>' +
     '<input type="text" maxlength="20" data-k="e" data-f="name" value="' + esc(e.z.name) + '"></div>' +
-    ortHtml('e', e.z, 'z. B. Parkhaus Kurhaus Wiesbaden') + tolHtml(e.z) + '</div>' +
+    ortHtml('e', e.z, 'z. B. Parkhaus Kurhaus Wiesbaden') +
+    tolHtml(e.z, 'Toleranz für dieses Ziel (leer = allgemein), gilt auch für alle Strecken hierher') + '</div>' +
     '<button class="haupt" data-a="uebernehmen">Übernehmen</button><button data-a="verwerfen">Verwerfen</button>';
 }
 
@@ -225,7 +228,7 @@ function streckenHtml() {
   if (hinweis) h += '<div class="hinweis">' + esc(hinweis) + '</div>';
   h += '<ul class="liste">';
   L.reihe(d.strecken).forEach(function (i) {
-    var s = d.strecken[i], k = 's' + s.id, tol = tolText(s);
+    var s = d.strecken[i], k = 's' + s.id, tol = tolText(L.toleranzVon(d, s));
     h += '<li><b>' + esc(L.streckenName(d, s)) + '</b>' + (s.n ? ' <span class="klein">' + s.n + '× gewählt</span>' : '') +
       '<br><span class="klein">' + esc(L.kurzName(L.ort(d, s.von))) + ' > ' + esc(L.kurzName(L.ort(d, s.nach))) + (tol ? ' · ' + esc(tol) : '') + '</span><br>' +
       '<button class="klein" data-a="aendern" data-k="' + k + '">Ändern</button>' +
@@ -258,9 +261,14 @@ function streckeEditorHtml() {
     '<div class="karte"><div class="kopf">' + (e.neu ? 'Neue Strecke' : 'Strecke ändern') + '</div>' +
     '<div class="feld"><span class="klein">Name auf der Uhr (leer = Von > Nach)</span>' +
     '<input type="text" maxlength="20" data-k="e" data-f="name" value="' + esc(e.z.name) + '"></div>' +
-    endeHtml('von') + endeHtml('nach') + tolHtml(e.z) + '</div>' +
+    endeHtml('von') + endeHtml('nach') + tolHtml(e.z, zielFav() ? 'Toleranz für ' + (zielFav().name || L.kurzName(zielFav())) +
+      ' (leer = allgemein), gilt für den Favoriten und alle Strecken dorthin' : 'Toleranz für dieses Ziel (leer = allgemein)') + '</div>' +
     '<button class="haupt" data-a="uebernehmen">Übernehmen</button><button data-a="verwerfen">Verwerfen</button>';
 }
+
+// Strecke im Editor endet an einem Favoriten: dessen Toleranz wird angezeigt und beim Übernehmen dort gespeichert
+function zielFav() { return e && e.art === 's' && e.z.nach && e.z.nach.fav !== undefined ? L.favorit(d, e.z.nach.fav) : null; }
+function tolVomZiel() { var f = zielFav(); if (f) L.TOL.forEach(function (t) { e.z[t] = f[t]; }); }
 
 // Editor prüfen und übernehmen; false = fehlt etwas (Meldung in e.fehler)
 function uebernehmen() {
@@ -273,6 +281,8 @@ function uebernehmen() {
     if (!ortOk(z.von)) { e.fehler = 'Von fehlt: Favorit wählen oder Adresse eingeben'; return false; }
     if (!ortOk(z.nach)) { e.fehler = 'Nach fehlt: Favorit wählen oder Adresse eingeben'; return false; }
   }
+  var ziel = zielFav();
+  if (ziel) L.TOL.forEach(function (t) { ziel[t] = z[t]; z[t] = null; });
   var liste = e.art === 'f' ? d.favoriten : d.strecken, ersetzt = false;
   for (var i = 0; i < liste.length; i++) if (liste[i].id === z.id) { liste[i] = z; ersetzt = true; }
   if (!ersetzt) liste.push(z);
@@ -283,7 +293,8 @@ function uebernehmen() {
 
 function zeitenHtml() {
   return '<div class="klein">Fahrzeit auf der Uhr = TomTom-Zeit × (1 + Zuschlag) + Puffer + Parken. ' +
-    'Jeder Favorit und jede Strecke kann eigene Werte haben, sonst gelten diese.</div>' +
+    'Jeder Favorit kann eigene Werte haben, sie gelten auch für alle Strecken zu diesem Favoriten. ' +
+    'Strecken zu einer anderen Adresse haben eigene Werte. Sonst gelten diese.</div>' +
     '<div class="feld"><span class="klein">Zuschlag in % (allgemein)</span><input type="number" inputmode="decimal" min="0" max="100" data-k="allg" data-f="zuschlag" value="' + d.zuschlag + '"></div>' +
     '<div class="feld"><span class="klein">Puffer in min (allgemein)</span><input type="number" inputmode="decimal" min="0" max="120" data-k="allg" data-f="puffer" value="' + d.puffer + '"></div>' +
     '<h2>Erinnerung</h2><div class="klein">Mit Ankunftszeit vibriert die Uhr so lange vor der Abfahrt. Auch an der Uhr: Menü > Einstellungen.</div>' +
@@ -292,7 +303,7 @@ function zeitenHtml() {
 
 function anzeigeHtml() {
   return '<div class="klein">Gilt für die Uhr und für diese Seite. An der Uhr auch: Menü > Einstellungen > Ansicht.</div>' +
-    wahlHtml('ansicht', [['toni', 'Toni', 'Tonis Original: Systemschrift, farbiger Kopfbalken'],
+    wahlHtml('ansicht', [['toni', 'Dunkel', 'Weiß auf Schwarz, Systemschrift, farbiger Kopfbalken (Tonis Original)'],
                          ['papier', 'Papier', 'Schwarz auf Weiß, alles fett, große Ziffern — am besten lesbar']], d.ansicht === 'papier' ? 'papier' : 'toni');
 }
 
@@ -307,7 +318,7 @@ function zeige() {
   var titel = (UNTERSEITEN.filter(function (u) { return u[0] === unterseite; })[0] || [])[1];
   var inhalt = { favoriten: favoritenHtml, strecken: streckenHtml, zeiten: zeitenHtml, anzeige: anzeigeHtml, tomtom: tomtomHtml }[unterseite];
   document.body.className = d.ansicht === 'papier' ? 'papier' : 'toni';
-  var zurueck = e ? '' : '<button class="klein" data-a="uebersicht">‹ Übersicht</button>';
+  var zurueck = e ? '' : '<button class="zurueck" data-a="uebersicht"><span class="pfeil">‹</span>Übersicht</button>';
   $('app').innerHTML = inhalt ? zurueck + '<h1>' + titel + '</h1>' + inhalt() : hauptHtml();
   leisteZeigen();
 }
@@ -393,6 +404,7 @@ document.addEventListener('click', function (ev) {
     else if (e && (art === 'von' || art === 'nach')) {
       var alt = e.z[art];
       e.z[art] = v ? { fav: parseInt(v, 10) } : (alt && alt.fav === undefined ? alt : leerOrt());
+      if (art === 'nach' && v) tolVomZiel();
       zeige();
       if (!v) fokus(art === 'von' ? 'ev' : 'en', 'adresse');
       return;
@@ -411,6 +423,7 @@ document.addEventListener('click', function (ev) {
     var z = eintrag(k);
     if (!z) return;
     e = { art: k.charAt(0), neu: false, z: kopie(z), fehler: '' };
+    tolVomZiel();
     suche = {}; zeige(); window.scrollTo && window.scrollTo(0, 0);
     return;
   }
@@ -429,7 +442,9 @@ document.addEventListener('click', function (ev) {
   if (a === 'rueck') {
     if (d.strecken.length >= L.MAXS) { hinweis = 'Strecken voll (' + L.MAXS + '): erst eine löschen.'; return zeige(); }
     var s = eintrag(k), c = kopie(s);
-    d.strecken.push({ id: d.nid++, name: '', von: c.nach, nach: c.von, n: 0, zuschlag: c.zuschlag, puffer: c.puffer, park: c.park });
+    var r = { id: d.nid++, name: '', von: c.nach, nach: c.von, n: 0, zuschlag: null, puffer: null, park: null };
+    if (L.toleranzVon(d, r) === r) L.TOL.forEach(function (t) { r[t] = c[t]; });   // zu einer Adresse: Werte der Hinfahrt
+    d.strecken.push(r);
     hinweis = 'Rückfahrt angelegt.';
     vormerken(); return zeige();
   }
