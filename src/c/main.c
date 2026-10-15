@@ -21,6 +21,8 @@
 #define NACH_ABFAHRT (10 * SECONDS_PER_MINUTE)
 // Ruhe in Listen und Zeitwahl, danach zurück zur Seite bzw. raus; NEUES ZIEL? zählt dann als NEIN
 #define RUHE_MS 30000
+// Hoch/Runter auf der Seite wechselt das Ziel, abgefragt wird erst, wenn so lange keine Taste kam (schont TomTom)
+#define WECHSEL_MS 800
 #define RUHE_FRAGE_MS 10000
 // Solange die Einstellungen am Handy offen sind, nicht von selbst beenden: sonst schließt die Pebble-App die Seite.
 // Höchstens so lange, falls die Meldung „geschlossen“ ausbleibt
@@ -68,7 +70,7 @@ typedef enum { L_WOHIN, L_ZIELMENUE, L_MENUE, L_EINST, L_ERINNERUNG, L_NEUES_ZIE
 
 static Window *s_window;
 static Layer *s_canvas;
-static AppTimer *s_timeout, *s_ruhe, *s_blink_timer;
+static AppTimer *s_timeout, *s_ruhe, *s_blink_timer, *s_wechsel;
 static time_t s_einstellungen_bis;   // bis dahin gelten die Einstellungen am Handy als offen
 
 static RouteData s_route = { .minutes = -1 };
@@ -526,7 +528,7 @@ static void farben_setzen(void) {
   if (s_window) window_set_background_color(s_window, s_hg);
 }
 static GPath *s_arrow_up, *s_arrow_down;
-static GBitmap *s_hinweis;              // „halten: Menü“ hochkant neben Select, Bild aus resources/images
+static GBitmap *s_hinweis;              // „SET“ hochkant neben Select, Bild aus resources/images
 static GPoint s_up_points[] = { { 0, -10 }, { 10, 6 }, { -10, 6 } };
 static GPoint s_down_points[] = { { 0, 10 }, { 10, -6 }, { -10, -6 } };
 static const GPathInfo ARROW_UP_INFO = { .num_points = 3, .points = s_up_points };
@@ -692,7 +694,7 @@ static void t_footer(GContext *ctx, time_t now) {
     kopiere(text, s_status, sizeof(text));
     color = s_fehler;
   } else if (s_paused) {
-    strcpy(text, "Pausiert, SELECT = neu");
+    strcpy(text, "Pausiert, Select lang = neu");
     color = s_warn;
   } else if (s_data->minutes >= 0) {
     int age = (int)(now - s_data->updated);
@@ -713,9 +715,22 @@ static void t_footer(GContext *ctx, time_t now) {
   t_fuss(ctx, text, color);
 }
 
-// Kleiner Hinweis am rechten Rand auf Höhe von Select: Select lang öffnet das Menü (dort die Einstellungen).
-// Pebble dreht keinen Text, deshalb ein fertig gedrehtes Bild mit zwei Farben, die Schriftfarbe kommt aus der Palette.
+// Kleines Dreieck am rechten Rand (Spitze bei x 196), nach oben oder unten
+static void t_dreieck(GContext *ctx, int y, bool hoch) {
+  graphics_context_set_fill_color(ctx, s_neben);
+  for (int i = 0; i < 5; i++) {
+    graphics_fill_rect(ctx, GRect(196 - i, hoch ? y + i : y + 4 - i, 2 * i + 1, 1), 0, GCornerNone);
+  }
+}
+
+// Hinweise am rechten Rand auf Höhe der Tasten: Dreiecke an Hoch/Runter (Ziel wechseln), „SET“ an Select (Menü,
+// dort die Einstellungen). Pebble dreht keinen Text, deshalb ist „SET“ ein fertig gedrehtes Bild mit zwei Farben,
+// die Schriftfarbe kommt aus der Palette.
 static void t_hinweis(GContext *ctx) {
+  if (s_ziele_n > 1) {
+    t_dreieck(ctx, 48, true);
+    t_dreieck(ctx, 176, false);
+  }
   if (!s_hinweis) return;
   GColor *pal = gbitmap_get_palette(s_hinweis);
   const int n = gbitmap_get_format(s_hinweis) == GBitmapFormat1BitPalette ? 2 : 4;
@@ -1028,6 +1043,30 @@ static void zeige_seite(void) {
   layer_mark_dirty(s_canvas);
 }
 
+// Hoch/Runter auf der Seite: voriges/nächstes Ziel in der Reihenfolge von WOHIN?, ringsum. Die Ankunftszeit bleibt,
+// so lassen sich Ziele für dieselbe Uhrzeit vergleichen. Zählt nicht für die Häufigkeit (sonst springt die Reihenfolge).
+static void wechsel_abfragen(void *ctx) {
+  s_wechsel = NULL;
+  request_refresh(false);
+}
+
+static void ziel_wechseln(int d) {
+  if (s_ziele_n < 1) return;
+  int nr = ziel_index(s_wahl.id);
+  if (nr < 0) nr = d > 0 ? -1 : 0;
+  nr = (nr + d + s_ziele_n) % s_ziele_n;
+  if (s_ziele[nr].id == s_wahl.id) return;
+  wahl_setzen(&s_ziele[nr], s_wahl.ankunft);
+  restart_session();
+  stop_loading();
+  if (s_wechsel) {
+    app_timer_reschedule(s_wechsel, WECHSEL_MS);
+  } else {
+    s_wechsel = app_timer_register(WECHSEL_MS, wechsel_abfragen, NULL);
+  }
+  layer_mark_dirty(s_canvas);
+}
+
 // Ziel gewählt (aus WOHIN? oder nach der Zeitwahl): Seite zeigen und sofort abfragen
 static void ziel_starten(int nr, time_t ankunft) {
   wahl_setzen(&s_ziele[nr], ankunft);
@@ -1312,8 +1351,9 @@ static void taste(ButtonId b) {
   switch (s_modus) {
     case M_SEITE:
       if (b == BUTTON_ID_SELECT) {
-        restart_session();
-        request_refresh(false);
+        if (s_wahl.id) zeige_menue(0);
+      } else if (b == BUTTON_ID_UP || b == BUTTON_ID_DOWN) {
+        if (s_wahl.id) ziel_wechseln(b == BUTTON_ID_UP ? -1 : 1);
       } else if (b == BUTTON_ID_BACK) {
         app_verlassen();
       }
@@ -1349,10 +1389,11 @@ static void click_down(ClickRecognizerRef r, void *c) { taste(BUTTON_ID_DOWN); }
 static void click_select(ClickRecognizerRef r, void *c) { taste(BUTTON_ID_SELECT); }
 static void click_back(ClickRecognizerRef r, void *c) { taste(BUTTON_ID_BACK); }
 
-// Select lang = Menü dessen, was man sieht (wie Linie 8)
+// Select lang: auf der Seite sofort neu abfragen (kurz öffnet dort das Menü), in WOHIN? das Menü des Eintrags
 static void click_select_lang(ClickRecognizerRef r, void *c) {
   if (s_modus == M_SEITE && s_wahl.id) {
-    zeige_menue(0);
+    restart_session();
+    request_refresh(false);
   } else if (s_modus == M_LISTE && s_lart == L_WOHIN && s_lsel >= 0) {
     s_wohin_sel = s_lsel;
     zeige_zielmenue(s_lwert[s_lsel]);

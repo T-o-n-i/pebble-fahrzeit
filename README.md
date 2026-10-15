@@ -25,7 +25,7 @@ Wer schon die alte Version mit Ort 1 und Ort 2 hatte: Beim ersten Start werden b
 | Bildschirm | Was er zeigt | Tasten |
 |---|---|---|
 | **Wohin?** | Favoriten (Fahrt ab dem eigenen Standort) und Strecken (fester Start), die meistgenutzten oben | Select: losrechnen · Select lang: Ankunft um … oder Löschen |
-| **Fahrzeit** | Kopfzeile in der Stau-Farbe, Fahrzeit mit Trendpfeil, Stau, Ankunft bei Abfahrt jetzt bzw. „Los 16:55“ | Select: sofort neu abfragen · Select lang: Menü |
+| **Fahrzeit** | Kopfzeile in der Stau-Farbe, Fahrzeit mit Trendpfeil, Stau, Ankunft bei Abfahrt jetzt bzw. „Los 16:55“ | Select (am Rand „SET“): Menü · Select lang: sofort neu abfragen · Hoch/Runter (am Rand Dreiecke): voriges/nächstes Ziel |
 | **Menü** | Neues Ziel · Ankunft um … (ändern, löschen) · Einstellungen | Zurück: eine Ebene hoch |
 | **Ankunft** | Uhrzeit groß, erst die Stunde, dann die Minuten in 5er-Schritten, danach „Zeit ok?“ | Hoch/Runter stellen, Select weiter |
 
@@ -34,7 +34,7 @@ Wer schon die alte Version mit Ort 1 und Ort 2 hatte: Beim ersten Start werden b
 - **Erinnerung** vor der Abfahrt (5 bis 30 Minuten, an Uhr und Handy einstellbar): Die Uhr weckt sich selbst und vibriert
 - Liegt die Ankunft mehr als 90 Minuten in der Zukunft, fragt die App TomTom nach der Prognose für diese Uhrzeit (`arriveAt`)
 - Löschen geht an der Uhr über eine Bestätigungsseite: nur die obere Taste bestätigt, Zurück heißt nein
-- Die App fragt beim Öffnen und dann alle 3 Minuten ab. Nach 30 Minuten pausiert sie, Select startet sie wieder
+- Die App fragt beim Öffnen und dann alle 3 Minuten ab. Nach 30 Minuten pausiert sie, Select lang oder ein Zielwechsel startet sie wieder
 
 ## Ansichten
 
